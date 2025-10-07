@@ -52,6 +52,7 @@ if __name__=='__main__':
     # setup model
     model = NTRNN(input_size=len(src_vocab[0]), embedding_dim=args.embed_dim, hidden_size=args.hidden_dim, output_size=len(trg_vocab[0]), 
                   n_layers=4, dropout=args.dropout, device=device)
+    model = model.to(device)
 
     # learning rate scheduler, optimizer, loss function
     optimizer = optim.SGD(model.parameters(), lr=args.lr)

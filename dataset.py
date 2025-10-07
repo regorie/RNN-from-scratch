@@ -75,7 +75,8 @@ def get_data_loader(dataset, batch_size, pad_idx, shuffle=False):
         dataset=dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        collate_fn=collate_fn
+        collate_fn=collate_fn,
+        drop_last=True  # Ensure all batches are of equal size
     )
     return data_loader
 
