@@ -28,7 +28,7 @@ class Trainer():
 
             self.optimizer.zero_grad()
 
-            output = self.model(source, target[:-1], mode='train')
+            output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='train')
 
             output_dim = output.shape[-1]
             output = output.view(-1, output_dim)
@@ -37,6 +37,7 @@ class Trainer():
 
             loss = self.criterion(output, trg)
             loss.backward()
+            #nn.utils.clip_grad_value_(self.model.parameters(), clip_value=1000)
             nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
             self.optimizer.step()
             epoch_loss += loss.item()
@@ -65,7 +66,7 @@ class Trainer():
                 source = batch["source"].to(self.device)
                 target = batch["target"].to(self.device)
 
-                output = self.model(source, target[:-1], mode='test')
+                output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='test')
                 output_dim = output.shape[-1]
                 output = output.view(-1, output_dim)
 
@@ -84,7 +85,7 @@ class Trainer():
                 source = batch["source"].to(self.device)
                 target = batch["target"].to(self.device)
 
-                output = self.model(source, target[:-1], mode='test')
+                output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='test')
                 output_dim = output.shape[-1]
                 output = output.view(-1, output_dim)
 

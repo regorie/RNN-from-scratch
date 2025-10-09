@@ -16,13 +16,13 @@ class NTRNN(nn.Module):
         for name, param in self.named_parameters():
             nn.init.uniform_(param.data, -0.1, 0.1)
 
-    def forward(self, src, trg_input, mode='train'):
+    def forward(self, src, trg_input, src_lengths=None, mode='train'):
         trg_length = trg_input.shape[0]
         batch_size = trg_input.shape[1]
         trg_vocab_size = self.decoder.output_dim
 
         outputs = torch.zeros(trg_length, batch_size, trg_vocab_size).to(self.device)
-        encoder_output, (hidden, cell) = self.encoder(src)
+        encoder_output, (hidden, cell) = self.encoder(src, src_lengths)
         
         decoder_input = trg_input[0,:]
         for t in range(trg_length):
@@ -52,10 +52,15 @@ class LSTMEncoder(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=padding_idx)
         self.lstm = nn.LSTM(embed_dim, hidden_dim, n_layers, dropout=dropout)
 
-    def forward(self, text):
-
+    def forward(self, text, lengths=None):
         embedded = self.embedding(text)
-        output, (hidden, cell) = self.lstm(embedded)
+        if lengths is not None:
+            packed_embed = pack_padded_sequence(embedded, lengths, batch_first=False, enforce_sorted=False)
+            packed_output, (hidden, cell) = self.lstm(packed_embed)
+            output, _ = pad_packed_sequence(packed_output, batch_first=False)
+        else:
+            output, (hidden, cell) = self.lstm(embedded)
+
         hidden = torch.clamp(hidden, min=-50, max=50)
         cell = torch.clamp(cell, min=-50, max=50)
         return output, (hidden, cell)

@@ -73,13 +73,16 @@ def get_collate_fn(pad_idx):
         sources = [item['source'] for item in batch]
         targets = [item['target'] for item in batch]
 
+        src_lengths = [len(src) for src in sources]
+
         # Pad sequences to the max length in the batch
         src_padded = nn.utils.rnn.pad_sequence(sources, padding_value=pad_idx, batch_first=False)
         target_padded = nn.utils.rnn.pad_sequence(targets, padding_value=pad_idx, batch_first=False)
 
         batch = {
             'source': src_padded,
-            'target': target_padded
+            'target': target_padded,
+            'src_lengths': torch.tensor(src_lengths)
         }
         return batch
 
