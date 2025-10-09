@@ -20,7 +20,8 @@ def load_vocab(text):
 
     return word_to_idx, idx_to_word
 
-def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False):
+def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False, vocab=None):
+    # vocab : (src_w2i, trg_w2i)
     with open(src_data_path, 'r', encoding='utf-8') as sf,\
          open(trg_data_path, 'r', encoding='utf-8') as tf:
         src_lines = sf.readlines()
@@ -33,15 +34,30 @@ def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False):
             src_sentences.append(src_line.strip().split(' ')[:max_len])
             trg_sentences.append(trg_line.strip().split(' ')[:max_len])
 
-        src_w2i, src_i2w = load_vocab(src_sentences)
-        trg_w2i, trg_i2w = load_vocab(trg_sentences)
+        src_w2i, src_i2w, trg_w2i, trg_i2w = None, None, None, None
+        if vocab is None:
+            src_w2i, src_i2w = load_vocab(src_sentences)
+            trg_w2i, trg_i2w = load_vocab(trg_sentences)
 
-        for sentence in src_sentences:
-            for i, word in enumerate(sentence):
-                sentence[i] = src_w2i[word]
-        for sentence in trg_sentences:
-            for i, word in enumerate(sentence):
-                sentence[i] = trg_w2i[word]
+            for sentence in src_sentences:
+                for i, word in enumerate(sentence):
+                    sentence[i] = src_w2i[word]
+            for sentence in trg_sentences:
+                for i, word in enumerate(sentence):
+                    sentence[i] = trg_w2i[word]
+        else:
+            for sentence in src_sentences:
+                for i, word in enumerate(sentence):
+                    if word in vocab[0]:
+                        sentence[i] = vocab[0][word]
+                    else:
+                        sentence[i] = vocab[0]['<unk>']
+            for sentence in trg_sentences:
+                for i, word in enumerate(sentence):
+                    if word in vocab[1]:
+                        sentence[i] = vocab[1][word]
+                    else:
+                        sentence[i] = vocab[1]['<unk>']
 
         if is_reverse:
             sentence = reversed(sentence)
@@ -69,14 +85,14 @@ def get_collate_fn(pad_idx):
 
     return collate_fn
 
-def get_data_loader(dataset, batch_size, pad_idx, shuffle=False):
+def get_data_loader(dataset, batch_size, pad_idx, shuffle=False, drop_last=False):
     collate_fn = get_collate_fn(pad_idx)
     data_loader = data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collate_fn,
-        drop_last=True  # Ensure all batches are of equal size
+        drop_last=drop_last  # Ensure all batches are of equal size
     )
     return data_loader
 

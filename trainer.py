@@ -20,7 +20,7 @@ class Trainer():
         self.best_model_state = None
 
     def train_epoch(self):
-
+        self.model.train()
         epoch_loss = 0
         for batch in tqdm(self.train_loader):
             source = batch["source"].to(self.device)
@@ -39,18 +39,19 @@ class Trainer():
             loss.backward()
             nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
             self.optimizer.step()
-            self.scheduler.step()
             epoch_loss += loss.item()
+
         return epoch_loss / len(self.train_loader)
     
     def train(self, epoch):
-        
-        self.model.train()
+
         for ep in range(epoch):
-            cur_loss = self.train_epoch()
+            train_loss = self.train_epoch()
             val_loss = self.validate()
-            print("Epoch: ", ep, " Train loss: ", cur_loss, " Val loss: ", val_loss)
-            if val_loss < self.best_val_loss:
+            self.scheduler.step()
+            print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.scheduler.get_last_lr())
+            if val_loss <= self.best_val_loss:
+                self.best_val_loss = val_loss
                 self.best_model_state = self.model.state_dict()
 
     def evaluate(self):
@@ -64,7 +65,7 @@ class Trainer():
 
                 output = self.model(source, target[:-1], mode='test')
                 output_dim = output.shape[-1]
-                output = output[1:].view(-1, output_dim)
+                output = output.view(-1, output_dim)
 
                 target = target[1:].view(-1)
 
@@ -83,7 +84,7 @@ class Trainer():
 
                 output = self.model(source, target[:-1], mode='test')
                 output_dim = output.shape[-1]
-                output = output[1:].view(-1, output_dim)
+                output = output.view(-1, output_dim)
 
                 target = target[1:].view(-1)
 

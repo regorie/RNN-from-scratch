@@ -25,15 +25,15 @@ class NTRNN(nn.Module):
         encoder_output, (hidden, cell) = self.encoder(src)
         
         decoder_input = trg_input[0,:]
-        for t in range(1, trg_length):
+        for t in range(trg_length):
             decoder_output, hidden, cell = self.decoder(decoder_input, hidden, cell)
-            outputs[t-1] = decoder_output # shape (1, batch_size, trg_vocab_size)
+            outputs[t] = decoder_output.squeeze(0) # shape (1, batch_size, trg_vocab_size)
 
-            top1 = decoder_output.argmax(1)
+            if t == trg_length-1: break
             if mode=='train':
-                decoder_input = trg_input[t,:]
+                decoder_input = trg_input[t+1,:]
             else:
-                decoder_input = top1
+                decoder_input = decoder_output.argmax(2).squeeze(0)
         
         return outputs
 
