@@ -48,10 +48,10 @@ class Trainer():
         for ep in range(epoch):
             train_loss = self.train_epoch()
             val_loss = self.validate()
+            print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.optimizer.param_groups[0]['lr'])
             if (ep+1) >= self.learning_rate_update_point:
                 self.optimizer.param_groups[0]['lr'] *= 0.5
 
-            print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.optimizer.param_groups[0]['lr'])
             if val_loss <= self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_model_state = self.model.state_dict()

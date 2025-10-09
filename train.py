@@ -56,19 +56,6 @@ if __name__=='__main__':
 
     # learning rate scheduler, optimizer, loss function
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
-    #if args.dropout <= 0.0:
-    #    scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=5)
-    #    scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-    #    LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
-    #                                               schedulers=[scheduler1, scheduler2],
-    #                                               milestones=[5])
-    #elif args.dropout > 0.0:
-    #    scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=8)
-    #    scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-    #    LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
-    #                                               schedulers=[scheduler1, scheduler2],
-    #                                               milestones=[8])
-
     criterion = nn.CrossEntropyLoss(ignore_index=trg_vocab[0]['<pad>'])
 
     # setup trainer

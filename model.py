@@ -56,6 +56,8 @@ class LSTMEncoder(nn.Module):
 
         embedded = self.embedding(text)
         output, (hidden, cell) = self.lstm(embedded)
+        hidden = torch.clamp(hidden, min=-50, max=50)
+        cell = torch.clamp(cell, min=-50, max=50)
         return output, (hidden, cell)
     
 class LSTMDecoder(nn.Module):
