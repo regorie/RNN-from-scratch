@@ -6,15 +6,15 @@ from tqdm import tqdm
 
 
 class Trainer():
-    def __init__(self, model, train_loader, test_loader, val_loader, optimizer, scheduler, criterion, device):
+    def __init__(self, model, train_loader, test_loader, val_loader, optimizer, criterion, device, learning_rate_update_point=5):
         self.model = model
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.val_loader = val_loader
         self.optimizer = optimizer
-        self.scheduler = scheduler
         self.criterion = criterion
         self.device = device
+        self.learning_rate_update_point = learning_rate_update_point
 
         self.best_val_loss = float('inf')
         self.best_model_state = None
@@ -48,8 +48,10 @@ class Trainer():
         for ep in range(epoch):
             train_loss = self.train_epoch()
             val_loss = self.validate()
-            self.scheduler.step()
-            print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.scheduler.get_last_lr())
+            if (ep+1) >= self.learning_rate_update_point:
+                self.optimizer.param_groups[0]['lr'] *= 0.5
+
+            print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.optimizer.param_groups[0]['lr'])
             if val_loss <= self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_model_state = self.model.state_dict()

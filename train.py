@@ -23,6 +23,7 @@ parser.add_argument("--batch_size", "-b", type=int, default=128)
 parser.add_argument("--test_batch_size", "-tb", type=int, default=100)
 parser.add_argument("--epochs", "-ep", type=int, default=10)
 parser.add_argument("--lr", "-lr", type=float, default=1.0)
+parser.add_argument("--learning_rate_update_point", "-lrup", type=int, default=5)
 parser.add_argument("--max_len", "-m", type=int, default=50)
 parser.add_argument("--save_path", "-s", default='./models/ntrnn.pkl')
 args = parser.parse_args()
@@ -47,28 +48,31 @@ if __name__=='__main__':
 
     # setup model
     model = NTRNN(input_size=len(src_vocab[0]), embedding_dim=args.embed_dim, hidden_size=args.hidden_dim, output_size=len(trg_vocab[0]), 
-                  n_layers=args.num_layer, dropout=args.dropout, device=device)
+                  n_layers=args.num_layer, dropout=args.dropout, device=device, padding_idx=src_vocab[0]['<pad>'])
+    with torch.no_grad():
+        model.encoder.embedding.weight[0] = torch.zeros(args.embed_dim)
+        model.decoder.embedding.weight[0] = torch.zeros(args.embed_dim)
     model = model.to(device)
 
     # learning rate scheduler, optimizer, loss function
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
-    if args.dropout <= 0.0:
-        scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=5)
-        scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-        LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
-                                                   schedulers=[scheduler1, scheduler2],
-                                                   milestones=[5])
-    elif args.dropout > 0.0:
-        scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=8)
-        scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-        LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
-                                                   schedulers=[scheduler1, scheduler2],
-                                                   milestones=[8])
+    #if args.dropout <= 0.0:
+    #    scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=5)
+    #    scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
+    #    LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
+    #                                               schedulers=[scheduler1, scheduler2],
+    #                                               milestones=[5])
+    #elif args.dropout > 0.0:
+    #    scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=8)
+    #    scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
+    #    LR_scheduler = optim.lr_scheduler.SequentialLR(optimizer,
+    #                                               schedulers=[scheduler1, scheduler2],
+    #                                               milestones=[8])
 
-    criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[0]['<pad>'])
+    criterion = nn.CrossEntropyLoss(ignore_index=trg_vocab[0]['<pad>'])
 
     # setup trainer
-    trainer = Trainer(model, train_loader, test_loader, val_loader, optimizer, LR_scheduler, criterion, device)
+    trainer = Trainer(model, train_loader, test_loader, val_loader, optimizer, criterion, device, learning_rate_update_point=args.learning_rate_update_point)
 
     # training loop
     trainer.train(args.epochs)
