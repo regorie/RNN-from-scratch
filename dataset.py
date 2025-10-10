@@ -27,12 +27,23 @@ def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False, vocab
         src_lines = sf.readlines()
         trg_lines = tf.readlines()
 
-        src_sentences = []
-        trg_sentences = []
+        src_sentences_all = []
+        trg_sentences_all = []
 
-        for src_line, trg_line in zip(src_lines, trg_lines):
-            src_sentences.append(src_line.strip().split(' ')[:max_len])
-            trg_sentences.append(trg_line.strip().split(' ')[:max_len])
+        remove_idx = []
+
+        for idx, (src_line, trg_line) in enumerate(zip(src_lines, trg_lines)):
+            if len(src_line.strip().split(' ')) > max_len or len(trg_line.strip().split(' ')) > max_len:
+                remove_idx.append(idx)
+
+            src_sentences_all.append(src_line.strip().split(' '))
+            trg_sentences_all.append(trg_line.strip().split(' '))
+
+        src_sentences = [sen for idx, sen in enumerate(src_sentences_all) if idx not in remove_idx]
+        trg_sentences = [sen for idx, sen in enumerate(trg_sentences_all) if idx not in remove_idx]
+        del src_sentences_all
+        del trg_sentences_all
+        del remove_idx
 
         src_w2i, src_i2w, trg_w2i, trg_i2w = None, None, None, None
         if vocab is None:
@@ -109,8 +120,10 @@ class TextDataset(data.Dataset):
         """
         self.src_sentences = src_sentences
         self.trg_sentences = trg_sentences
-        self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
+        for i in range(len(trg_sentences)):
+            self.trg_sentences[i] = [trg_vocab[0]['<sos>']] + self.trg_sentences[i] + [trg_vocab[0]['<eos>']]
+        #self.src_vocab = src_vocab
+        #self.trg_vocab = trg_vocab
 
     def __len__(self):
         return len(self.src_sentences)
@@ -118,7 +131,6 @@ class TextDataset(data.Dataset):
     def __getitem__(self, idx):
         src_seq = self.src_sentences[idx]
         trg_seq = self.trg_sentences[idx]
-        trg_seq = [self.trg_vocab[0]['<sos>']] + trg_seq + [self.trg_vocab[0]['<eos>']]
 
         # 1. source: input to encoder
         # 2. target: target sequence

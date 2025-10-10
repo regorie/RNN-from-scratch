@@ -23,16 +23,17 @@ class NTRNN(nn.Module):
 
         outputs = torch.zeros(trg_length, batch_size, trg_vocab_size).to(self.device)
         encoder_output, (hidden, cell) = self.encoder(src, src_lengths)
-        
+        del encoder_output
+
         decoder_input = trg_input[0,:]
         for t in range(trg_length):
             decoder_output, hidden, cell = self.decoder(decoder_input, hidden, cell)
             outputs[t] = decoder_output.squeeze(0) # shape (1, batch_size, trg_vocab_size)
 
             if t == trg_length-1: break
-            if mode=='train':
+            if mode=='train' or mode=='test':
                 decoder_input = trg_input[t+1,:]
-            else:
+            elif mode=='generate':
                 decoder_input = decoder_output.argmax(2).squeeze(0)
         
         return outputs
@@ -40,7 +41,7 @@ class NTRNN(nn.Module):
     def predict(self, src, trg_input):
         self.eval()
         with torch.no_grad():
-            output = self.forward(src, trg_input, mode='predict')
+            output = self.forward(src, trg_input, mode='generate')
         return output
 
 class LSTMEncoder(nn.Module):
