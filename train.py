@@ -1,6 +1,6 @@
 import torch
 import argparse
-from model import NTRNN
+from model import NMTRNN
 from dataset import load_data, get_data_loader, TextDataset
 import torch.nn as nn
 import torch.optim as optim
@@ -14,8 +14,8 @@ parser.add_argument("--train_trg", "-trt", default='./datasets/train.10k.de')
 parser.add_argument("--test_trg", "-tet", default='./datasets/test.100.de')
 parser.add_argument("--val_src", "-vls", default='./datasets/valid.100.en')
 parser.add_argument("--val_trg", "-vlt", default='./datasets/valid.100.de')
-parser.add_argument("--save_path", "-sp", default='./models/ntrnn.pt')
-parser.add_argument("--vocab_path_base", "-vpb", default='./models/ntrnn_')
+parser.add_argument("--save_path", "-sp", default='./models/nmtrnn.pt')
+parser.add_argument("--vocab_path_base", "-vpb", default='./models/nmtrnn_')
 
 parser.add_argument("--dropout", "-d", type=float, default=0.0)
 parser.add_argument("--batch_size", "-b", type=int, default=128)
@@ -56,8 +56,8 @@ if __name__=='__main__':
     val_loader = get_data_loader(val_dataset, batch_size=args.test_batch_size, pad_idx=src_vocab[0]['<pad>'], shuffle=False, drop_last=False)
 
     # setup model
-    model = NTRNN(input_size=len(src_vocab[0]), embedding_dim=args.embed_dim, hidden_size=args.hidden_dim, output_size=len(trg_vocab[0]), 
-                  n_layers=args.num_layer, dropout=args.dropout, attention_mode=args.attn_mode, attention_win=args.window, max_length=args.max_len,
+    model = NMTRNN(input_size=len(src_vocab[0]), embedding_dim=args.embed_dim, hidden_size=args.hidden_dim, output_size=len(trg_vocab[0]), 
+                  n_layers=args.num_layer, dropout=args.dropout, input_feeding=args.input_feeding, attention_mode=args.attn_mode, attention_win=args.window, max_length=args.max_len,
                     device=device, padding_idx=src_vocab[0]['<pad>'])
     with torch.no_grad():
         model.encoder.embedding.weight[0] = torch.zeros(args.embed_dim)
