@@ -57,7 +57,8 @@ if __name__=='__main__':
 
     # setup model
     model = NTRNN(input_size=len(src_vocab[0]), embedding_dim=args.embed_dim, hidden_size=args.hidden_dim, output_size=len(trg_vocab[0]), 
-                  n_layers=args.num_layer, dropout=args.dropout, device=device, padding_idx=src_vocab[0]['<pad>'])
+                  n_layers=args.num_layer, dropout=args.dropout, attention_mode=args.attn_mode, attention_win=args.window, max_length=args.max_len,
+                    device=device, padding_idx=src_vocab[0]['<pad>'])
     with torch.no_grad():
         model.encoder.embedding.weight[0] = torch.zeros(args.embed_dim)
         model.decoder.embedding.weight[0] = torch.zeros(args.embed_dim)
