@@ -15,6 +15,8 @@ parser.add_argument("--source_vocab", default="./models/ntrnn_src.pkl")
 parser.add_argument("--target_vocab", default="./models/ntrnn_trg.pkl")
 parser.add_argument("--reverse", "-r", type=bool, default=False)
 parser.add_argument("--window", "-win", type=int, default=10)
+parser.add_argument("--mode", "-m", default="beam_translate")
+parser.add_argument("--beam_size", "-beam", default=5)
 args = parser.parse_args()
 
 
@@ -57,7 +59,7 @@ if __name__=='__main__':
         target_input = [trg_w2i['<sos>']] + [0 for i in range(args.target_length)]
         target_input = torch.tensor(target_input).reshape(len(target_input), 1)
 
-        output = model.predict(tokenized_query, target_input)
+        output = model.translate(tokenized_query, target_input, mode=args.mode, beam_size=args.beam_size, eos_token=trg_w2i['<eos>'])
         output = output.argmax(2).squeeze()
 
         output_sentence = ""

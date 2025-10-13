@@ -6,6 +6,9 @@ import torch.nn as nn
 import torch.optim as optim
 from trainer import Trainer
 import pickle
+from collections import Counter
+import numpy as np
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train_src", "-trs", default='./datasets/train.10k.en')
@@ -16,6 +19,8 @@ parser.add_argument("--val_src", "-vls", default='./datasets/valid.100.en')
 parser.add_argument("--val_trg", "-vlt", default='./datasets/valid.100.de')
 parser.add_argument("--save_path", "-sp", default='./models/nmtrnn.pt')
 parser.add_argument("--vocab_path_base", "-vpb", default='./models/nmtrnn_')
+
+parser.add_argument("--beam_size", '-beam', type=int, default=12)
 
 parser.add_argument("--dropout", "-d", type=float, default=0.0)
 parser.add_argument("--batch_size", "-b", type=int, default=128)
@@ -36,6 +41,7 @@ parser.add_argument("--input_feeding", "-feed", type=bool, default=False)
 
 args = parser.parse_args()
 
+#torch.autograd.set_detect_anomaly(True)
 
 if __name__=='__main__':
     # set training params
@@ -91,3 +97,43 @@ if __name__=='__main__':
         pickle.dump(src_vocab, f)
     with open(target_vocab_file, "wb") as f:
         pickle.dump(trg_vocab, f)
+
+    print("Saving complete... Calculating BLEU score")
+
+    # test model BLEU score
+    total_bleu_score = 0
+    for batch in test_loader:
+        for b in tqdm(range(len(batch["source"][0]))):
+            source = batch["source"][:,b].to(device).reshape(-1,1)
+            target = batch["target"][:,b].to(device).reshape(-1,1)
+
+            output = trainer.model.translate(source, target, mode='beam_translate', beam_size=args.beam_size, eos_token=trg_vocab[0]['<eos>']) # (length)
+
+            p_i = []
+            for n in range(1, 5):
+                
+                # transfer to ngram
+                predicted_n_gram_list = []
+                target_n_gram_list = []
+                for i in range(len(output)-n+1):
+                    predicted_n_gram_list.append(tuple(output[i:i+n]))
+                for i in range(len(target)-n+1):
+                    target_n_gram_list.append(tuple(target[i:i+n]))
+                
+                target_counter = Counter(target_n_gram_list)
+                predicted_counter = Counter(predicted_n_gram_list)
+
+                common_keys = set(predicted_counter.keys()) & set(target_counter.keys())
+                correct_counter = predicted_counter & target_counter
+                correct = sum(correct_counter.values())
+                total = sum(predicted_counter.values())
+
+                if total > 0 and correct > 0:
+                    p_i.append(correct/total)
+
+            if p_i:
+                bp = min(1.0, np.exp(1 - len(output)/len(target)))
+                bleu_score = bp * np.average(np.log(p_i))
+                total_bleu_score += bleu_score
+    
+    print("BLEU score: ", total_bleu_score)

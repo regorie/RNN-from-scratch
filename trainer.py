@@ -52,6 +52,8 @@ class Trainer():
             print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.optimizer.param_groups[0]['lr'])
             if (ep+1) >= self.learning_rate_update_point:
                 self.optimizer.param_groups[0]['lr'] *= 0.5
+            
+
 
             if val_loss <= self.best_val_loss:
                 self.best_val_loss = val_loss
@@ -94,3 +96,4 @@ class Trainer():
                 curr_loss = self.criterion(output, target)
                 loss += curr_loss.item()
         return loss / len(self.val_loader)
+    
