@@ -21,7 +21,7 @@ class Trainer():
 
         self.loss_list = []
 
-    def train_epoch(self, test_invterval=None):
+    def train_epoch(self, test_interval=None):
         self.model.train()
         epoch_loss = 0
         iter = 0
@@ -47,8 +47,9 @@ class Trainer():
             epoch_loss += loss.item()
 
             iter += 1
-            if test_invterval and iter % test_invterval == 0:
+            if test_interval and iter % test_interval == 0:
                 self.loss_list[-1].extend([self.validate()])
+                self.model.train()
 
         return epoch_loss / len(self.train_loader)
     
