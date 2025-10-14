@@ -3,24 +3,31 @@ import torch.utils.data as data
 import torch.nn as nn
 import numpy as np
 from collections import defaultdict
+from collections import Counter
+from tqdm import tqdm
 
 
-def load_vocab(text):
+def build_vocab(file_name, max_vocab):
+    w2i = {'<pad>':0, '<unk>':1, '<sos>':2, '<eos>':3}
+    i2w = {0:'<pad>', 1:'<unk>', 2:'<sos>', 3:'<eos>'}
 
-    word_to_idx = {'<pad>':0, '<sos>':1, '<eos>':2, '<unk>':3}
-    idx_to_word = {0:'<pad>', 1:'<sos>', 2:'<eos>', 3:'<unk>'}
+    counter = Counter()
 
-    idx = 4
-    for sentence in text:
-        for word in sentence:
-            if word not in word_to_idx:
-                word_to_idx[word] = idx
-                idx_to_word[idx] = word
-                idx += 1
+    with open(file_name, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
 
-    return word_to_idx, idx_to_word
+        for line in tqdm(lines):
+            for token in line.strip().split(' '):
+                counter[token] += 1
 
-def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False, vocab=None):
+        id = 4
+        for token, _ in counter.most_common(max_vocab):
+            w2i[token] = id
+            i2w[id] = token
+            id += 1
+    return w2i, i2w
+
+def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False):
     # vocab : (src_w2i, trg_w2i)
     with open(src_data_path, 'r', encoding='utf-8') as sf,\
          open(trg_data_path, 'r', encoding='utf-8') as tf:
@@ -45,36 +52,24 @@ def load_data(src_data_path, trg_data_path, max_len=100, is_reverse=False, vocab
         del trg_sentences_all
         del remove_idx
 
-        src_w2i, src_i2w, trg_w2i, trg_i2w = None, None, None, None
-        if vocab is None:
-            src_w2i, src_i2w = load_vocab(src_sentences)
-            trg_w2i, trg_i2w = load_vocab(trg_sentences)
-
-            for sentence in src_sentences:
-                for i, word in enumerate(sentence):
+        for sentence in src_sentences:
+            for i, word in enumerate(sentence):
+                if word in src_w2i:
                     sentence[i] = src_w2i[word]
-            for sentence in trg_sentences:
-                for i, word in enumerate(sentence):
+                else:
+                    sentence[i] = src_w2i['<unk>']
+        for sentence in trg_sentences:
+            for i, word in enumerate(sentence):
+                if word in trg_w2i:
                     sentence[i] = trg_w2i[word]
-        else:
-            for sentence in src_sentences:
-                for i, word in enumerate(sentence):
-                    if word in vocab[0]:
-                        sentence[i] = vocab[0][word]
-                    else:
-                        sentence[i] = vocab[0]['<unk>']
-            for sentence in trg_sentences:
-                for i, word in enumerate(sentence):
-                    if word in vocab[1]:
-                        sentence[i] = vocab[1][word]
-                    else:
-                        sentence[i] = vocab[1]['<unk>']
+                else:
+                    sentence[i] = trg_w2i['<unk>']
 
         if is_reverse:
-            sentence = reversed(sentence)
-            trg_sentences = reversed(trg_sentences)
+            sentence = sentence[::-1]
+            trg_sentences = trg_sentences[::-1]
 
-    return src_sentences, trg_sentences, (src_w2i, src_i2w), (trg_w2i, trg_i2w)
+    return src_sentences, trg_sentences
 
 def get_collate_fn(pad_idx):
     def collate_fn(batch):
@@ -111,7 +106,7 @@ def get_data_loader(dataset, batch_size, pad_idx, shuffle=False, drop_last=False
     return data_loader
 
 class TextDataset(data.Dataset):
-    def __init__(self, src_sentences, trg_sentences, src_vocab, trg_vocab):
+    def __init__(self, src_sentences, trg_sentences, sos, eos):
         """
         src_sentences: list of sentences(list of word idices)
         trg_sentences: same as above
@@ -121,7 +116,7 @@ class TextDataset(data.Dataset):
         self.src_sentences = src_sentences
         self.trg_sentences = trg_sentences
         for i in range(len(trg_sentences)):
-            self.trg_sentences[i] = [trg_vocab[0]['<sos>']] + self.trg_sentences[i] + [trg_vocab[0]['<eos>']]
+            self.trg_sentences[i] = [sos] + self.trg_sentences[i] + [eos]
         #self.src_vocab = src_vocab
         #self.trg_vocab = trg_vocab
 

@@ -19,9 +19,13 @@ class Trainer():
         self.best_val_loss = float('inf')
         self.best_model_state = None
 
-    def train_epoch(self):
+        self.loss_list = []
+
+    def train_epoch(self, test_invterval=None):
         self.model.train()
         epoch_loss = 0
+        iter = 0
+        self.loss_list.append([])
         for batch in tqdm(self.train_loader):
             source = batch["source"].to(self.device)
             target = batch["target"].to(self.device)
@@ -42,19 +46,21 @@ class Trainer():
             self.optimizer.step()
             epoch_loss += loss.item()
 
+            iter += 1
+            if test_invterval and iter % test_invterval == 0:
+                self.loss_list[-1].extend([self.validate()])
+
         return epoch_loss / len(self.train_loader)
     
-    def train(self, epoch):
+    def train(self, epoch, test_interval):
 
         for ep in range(epoch):
-            train_loss = self.train_epoch()
+            train_loss = self.train_epoch(test_interval)
             val_loss = self.validate()
             print("Epoch: ", ep+1, " Train loss: ", train_loss, " Val loss: ", val_loss, " Learning rate: ", self.optimizer.param_groups[0]['lr'])
             if (ep+1) >= self.learning_rate_update_point:
                 self.optimizer.param_groups[0]['lr'] *= 0.5
             
-
-
             if val_loss <= self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_model_state = self.model.state_dict()
