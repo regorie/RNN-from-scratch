@@ -53,8 +53,8 @@ if __name__=='__main__':
 
 
     # set training params
-    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = torch.device("mps")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device("mps")
 
     # build vocab
     src_w2i, src_i2w = build_vocab(args.train_src, args.max_vocab)

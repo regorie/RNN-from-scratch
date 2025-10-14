@@ -203,7 +203,7 @@ class LSTMDecoder(nn.Module):
                 
 
         output, (hidden, cell) = self.lstm(embedded, (hidden, cell))
-
+        attention_output = None
         if self.attn == 'global':
             attention_output = self.attention(encoder_output, hidden[-1])
             output = attention_output
