@@ -41,7 +41,7 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
 
         remove_idx = []
 
-        for idx, (src_line, trg_line) in tqdm(enumerate(zip(src_lines, trg_lines))):
+        for idx, (src_line, trg_line) in enumerate(zip(src_lines, trg_lines)):
             if len(src_line.strip().split(' ')) > max_len or len(trg_line.strip().split(' ')) > max_len:
                 remove_idx.append(idx)
 
@@ -54,13 +54,15 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
         del trg_sentences_all
         del remove_idx
 
-        for sentence in src_sentences:
+        print("Mapping source sentence...")
+        for sentence in tqdm(src_sentences):
             for i, word in enumerate(sentence):
                 if word in src_w2i:
                     sentence[i] = src_w2i[word]
                 else:
                     sentence[i] = src_w2i['<unk>']
-        for sentence in trg_sentences:
+        print("Mapping target sentence...")
+        for sentence in tqdm(trg_sentences):
             for i, word in enumerate(sentence):
                 if word in trg_w2i:
                     sentence[i] = trg_w2i[word]
