@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 
 def build_vocab(file_name, max_vocab):
+    print("Building vocab...")
     w2i = {'<pad>':0, '<unk>':1, '<sos>':2, '<eos>':3}
     i2w = {0:'<pad>', 1:'<unk>', 2:'<sos>', 3:'<eos>'}
 
@@ -28,7 +29,8 @@ def build_vocab(file_name, max_vocab):
     return w2i, i2w
 
 def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False):
-    # vocab : (src_w2i, trg_w2i)
+
+    print("Loading data...")
     with open(src_data_path, 'r', encoding='utf-8') as sf,\
          open(trg_data_path, 'r', encoding='utf-8') as tf:
         src_lines = sf.readlines()
@@ -39,7 +41,7 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
 
         remove_idx = []
 
-        for idx, (src_line, trg_line) in enumerate(zip(src_lines, trg_lines)):
+        for idx, (src_line, trg_line) in tqdm(enumerate(zip(src_lines, trg_lines))):
             if len(src_line.strip().split(' ')) > max_len or len(trg_line.strip().split(' ')) > max_len:
                 remove_idx.append(idx)
 
