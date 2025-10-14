@@ -11,12 +11,12 @@ import numpy as np
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--train_src", "-trs", default='./datasets/train.10k.en')
-parser.add_argument("--test_src", "-tes", default='./datasets/test.100.en')
-parser.add_argument("--train_trg", "-trt", default='./datasets/train.10k.de')
-parser.add_argument("--test_trg", "-tet", default='./datasets/test.100.de')
-parser.add_argument("--val_src", "-vls", default='./datasets/valid.100.en')
-parser.add_argument("--val_trg", "-vlt", default='./datasets/valid.100.de')
+parser.add_argument("--train_src", "-trs", default='./datasets/datasets_small/train.10k.en')
+parser.add_argument("--test_src", "-tes", default='./datasets/datasets_small/test.100.en')
+parser.add_argument("--train_trg", "-trt", default='./datasets/datasets_small/train.10k.de')
+parser.add_argument("--test_trg", "-tet", default='./datasets/datasets_small/test.100.de')
+parser.add_argument("--val_src", "-vls", default='./datasets/datasets_small/valid.100.en')
+parser.add_argument("--val_trg", "-vlt", default='./datasets/datasets_small/valid.100.de')
 parser.add_argument("--save_path", "-sp", default='./models/nmtrnn.pt')
 parser.add_argument("--vocab_path_base", "-vpb", default='./models/nmtrnn_')
 
