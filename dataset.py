@@ -48,8 +48,10 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
             trg_sentences_all.append(trg_line.strip().split(' '))
 
         start_time = time.time()
-        src_sentences = [sen for idx, sen in enumerate(src_sentences_all) if idx not in remove_idx]
-        trg_sentences = [sen for idx, sen in enumerate(trg_sentences_all) if idx not in remove_idx]
+        src_sentences = [sen for idx, sen in tqdm(enumerate(src_sentences_all), desc="Filtering source sentences", total=len(src_sentences_all)) if idx not in remove_idx]
+        trg_sentences = [sen for idx, sen in tqdm(enumerate(trg_sentences_all), desc="Filtering target sentences", total=len(trg_sentences_all)) if idx not in remove_idx]
+        #src_sentences = [sen for idx, sen in enumerate(src_sentences_all) if idx not in remove_idx]
+        #trg_sentences = [sen for idx, sen in enumerate(trg_sentences_all) if idx not in remove_idx]
         end_time = time.time()
         print("took ", end_time-start_time, " to filter sentences")
         del src_sentences_all
