@@ -1,10 +1,9 @@
 import torch
 import torch.utils.data as data
 import torch.nn as nn
-import numpy as np
-from collections import defaultdict
 from collections import Counter
 from tqdm import tqdm
+import time
 
 
 def build_vocab(file_name, max_vocab):
@@ -48,8 +47,11 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
             src_sentences_all.append(src_line.strip().split(' '))
             trg_sentences_all.append(trg_line.strip().split(' '))
 
+        start_time = time.time()
         src_sentences = [sen for idx, sen in enumerate(src_sentences_all) if idx not in remove_idx]
         trg_sentences = [sen for idx, sen in enumerate(trg_sentences_all) if idx not in remove_idx]
+        end_time = time.time()
+        print("took ", end_time-start_time, " to filter sentences")
         del src_sentences_all
         del trg_sentences_all
         del remove_idx
