@@ -24,6 +24,7 @@ parser.add_argument("--vocab_path_base", "-vpb", default='./models/nmtrnn_')
 parser.add_argument("--max_vocab", "-mv", type=int, default=50000)
 
 parser.add_argument("--beam_size", '-beam', type=int, default=12)
+parser.add_argument("--BLEU", default='yes')
 
 parser.add_argument("--dropout", "-d", type=float, default=0.0)
 parser.add_argument("--batch_size", "-b", type=int, default=128)
@@ -103,6 +104,7 @@ if __name__=='__main__':
     # test model
     trainer.model.load_state_dict(trainer.best_model_state)
     test_loss = trainer.evaluate()
+    logs_dict["final_test_loss"] = test_loss
 
     print("Final test loss: ", test_loss)
 
@@ -128,43 +130,44 @@ if __name__=='__main__':
     del train_loader, test_loader, val_loader
     del train_dataset, val_dataset
 
-    bleu_loader = get_data_loader(test_dataset, batch_size=1, pad_idx=src_w2i['<pad>'], shuffle=False, drop_last=False)
-
     total_bleu_score = 0
-    for batch in tqdm(bleu_loader):
-        source = batch["source"].to(device)
-        target = batch["target"].to(device)
+    if args.BLEU == 'yes':
+        bleu_loader = get_data_loader(test_dataset, batch_size=1, pad_idx=src_w2i['<pad>'], shuffle=False, drop_last=False)
 
-        output = trainer.model.translate(source, target, mode='beam_translate', beam_size=args.beam_size, eos_token=trg_w2i['<eos>']) # (length)
+        for batch in tqdm(bleu_loader):
+            source = batch["source"].to(device)
+            target = batch["target"].to(device)
 
-        p_i = []
-        for n in range(1, 5):
-            
-            # transfer to ngram
-            predicted_n_gram_list = []
-            target_n_gram_list = []
-            for i in range(len(output)-n+1):
-                predicted_n_gram_list.append(tuple(output[i:i+n]))
-            for i in range(len(target)-n+1):
-                target_n_gram_list.append(tuple(target[i:i+n]))
-            
-            target_counter = Counter(target_n_gram_list)
-            predicted_counter = Counter(predicted_n_gram_list)
+            output = trainer.model.translate(source, target, mode='beam_translate', beam_size=args.beam_size, eos_token=trg_w2i['<eos>']) # (length)
 
-            common_keys = set(predicted_counter.keys()) & set(target_counter.keys())
-            correct_counter = predicted_counter & target_counter
-            correct = sum(correct_counter.values())
-            total = sum(predicted_counter.values())
+            p_i = []
+            for n in range(1, 5):
+                
+                # transfer to ngram
+                predicted_n_gram_list = []
+                target_n_gram_list = []
+                for i in range(len(output)-n+1):
+                    predicted_n_gram_list.append(tuple(output[i:i+n]))
+                for i in range(len(target)-n+1):
+                    target_n_gram_list.append(tuple(target[i:i+n]))
+                
+                target_counter = Counter(target_n_gram_list)
+                predicted_counter = Counter(predicted_n_gram_list)
 
-            if total > 0 and correct > 0:
-                p_i.append(correct/total)
+                common_keys = set(predicted_counter.keys()) & set(target_counter.keys())
+                correct_counter = predicted_counter & target_counter
+                correct = sum(correct_counter.values())
+                total = sum(predicted_counter.values())
 
-        if p_i:
-            bp = min(1.0, np.exp(1 - len(output)/len(target)))
-            bleu_score = bp * np.average(np.log(p_i))
-            total_bleu_score += bleu_score
-    
-    print("BLEU score: ", total_bleu_score)
+                if total > 0 and correct > 0:
+                    p_i.append(correct/total)
+
+            if p_i:
+                bp = min(1.0, np.exp(1 - len(output)/len(target)))
+                bleu_score = bp * np.average(np.log(p_i))
+                total_bleu_score += bleu_score
+        
+        print("BLEU score: ", total_bleu_score)
 
     logs_dict["test_loss"] = trainer.loss_list
     logs_dict["BLEU_score"] = total_bleu_score
