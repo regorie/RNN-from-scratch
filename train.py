@@ -124,7 +124,14 @@ if __name__=='__main__':
     with open(target_vocab_file, "wb") as f:
         pickle.dump(trg_vocab, f)
 
-    print("Saving complete... \nCalculating BLEU score...")
+    logs_dict["test_loss"] = trainer.loss_list
+    logs_dict["src_vocab_file"] = source_vocab_file
+    logs_dict["trg_vocab_file"] = target_vocab_file
+    
+    with open(f'./logs/training_log_{timestamp}.json', 'w') as f:
+        json.dump(logs_dict, f, indent=2)
+
+    print("Saving complete...")
 
     # test model BLEU score
     del train_loader, test_loader, val_loader
@@ -132,6 +139,7 @@ if __name__=='__main__':
 
     total_bleu_score = 0
     if args.BLEU == 'yes':
+        print("Calculating BLEU... ")
         bleu_loader = get_data_loader(test_dataset, batch_size=1, pad_idx=src_w2i['<pad>'], shuffle=False, drop_last=False)
 
         for batch in tqdm(bleu_loader):
@@ -169,10 +177,7 @@ if __name__=='__main__':
         
         print("BLEU score: ", total_bleu_score)
 
-    logs_dict["test_loss"] = trainer.loss_list
-    logs_dict["BLEU_score"] = total_bleu_score
-    logs_dict["src_vocab_file"] = source_vocab_file
-    logs_dict["trg_vocab_file"] = target_vocab_file
+        logs_dict["BLEU_score"] = total_bleu_score
     
-    with open(f'./logs/training_log_{timestamp}.json', 'w') as f:
-        json.dump(logs_dict, f, indent=2)
+        with open(f'./logs/training_log_{timestamp}_with_bleu.json', 'w') as f:
+            json.dump(logs_dict, f, indent=2)
