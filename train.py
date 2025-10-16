@@ -45,7 +45,14 @@ parser.add_argument("--input_feeding", "-feed", type=bool, default=False)
 
 args = parser.parse_args()
 
-# TODO create log file
+filtered_sentence_file={
+    'train_en': None,
+    'train_de': None,
+    'test_en': None,
+    'test_de': None,
+    'dev_en': None,
+    'dev_de': None,
+}
 
 if __name__=='__main__':
 
@@ -62,9 +69,9 @@ if __name__=='__main__':
     trg_w2i, trg_i2w = build_vocab(args.train_trg, args.max_vocab)
 
     # load data
-    src_train, trg_train = load_data(args.train_src, args.train_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse)
-    src_test, trg_test = load_data(args.test_src, args.test_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse)
-    src_val, trg_val = load_data(args.val_src, args.val_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse)
+    src_train, trg_train = load_data(args.train_src, args.train_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['train_en'], trg=filtered_sentence_file['train_de'])
+    src_test, trg_test = load_data(args.test_src, args.test_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['test_en'], trg=filtered_sentence_file['test_de'])
+    src_val, trg_val = load_data(args.val_src, args.val_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['dev_en'], trg=filtered_sentence_file['dev_de'])
 
     train_dataset = TextDataset(src_sentences=src_train, trg_sentences=trg_train, sos=trg_w2i['<sos>'], eos=trg_w2i['<eos>'])
     train_loader = get_data_loader(train_dataset, batch_size=args.batch_size, pad_idx=src_w2i['<pad>'], shuffle=True, drop_last=True)

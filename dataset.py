@@ -4,7 +4,7 @@ import torch.nn as nn
 from collections import Counter
 from tqdm import tqdm
 import time
-
+import pickle
 
 def build_vocab(file_name, max_vocab):
     print("Building vocab...")
@@ -27,9 +27,22 @@ def build_vocab(file_name, max_vocab):
             id += 1
     return w2i, i2w
 
-def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False):
+def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False, src_file=None, trg_file=None):
 
     print("Loading data...")
+
+    if src_file is not None and trg_file is not None:
+        with open(src_file, 'rb') as sf, open(trg_file, 'rb') as tf:
+
+            src_sentences = pickle.load(sf)
+            trg_sentences = pickle.load(tf)
+
+            if is_reverse:
+                src_sentences = src_sentences[::-1]
+                trg_sentences = trg_sentences[::-1]
+            
+            return src_sentences, trg_sentences
+
     with open(src_data_path, 'r', encoding='utf-8') as sf,\
          open(trg_data_path, 'r', encoding='utf-8') as tf:
         src_lines = sf.readlines()
@@ -50,8 +63,9 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
         start_time = time.time()
         src_sentences = [sen for idx, sen in tqdm(enumerate(src_sentences_all), desc="Filtering source sentences", total=len(src_sentences_all)) if idx not in remove_idx]
         trg_sentences = [sen for idx, sen in tqdm(enumerate(trg_sentences_all), desc="Filtering target sentences", total=len(trg_sentences_all)) if idx not in remove_idx]
-        #src_sentences = [sen for idx, sen in enumerate(src_sentences_all) if idx not in remove_idx]
-        #trg_sentences = [sen for idx, sen in enumerate(trg_sentences_all) if idx not in remove_idx]
+        
+        # save filtered sentences
+
         end_time = time.time()
         print("took ", end_time-start_time, " to filter sentences")
         del src_sentences_all
@@ -72,9 +86,14 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
                     sentence[i] = trg_w2i[word]
                 else:
                     sentence[i] = trg_w2i['<unk>']
+        
+        with open('src_sentences_filtered.pkl', 'wb') as f:
+            pickle.dump(src_sentences, f)
+        with open('trg_sentences_filtered.pkl', 'wb') as f:
+            pickle.dump(trg_sentences, f)
 
         if is_reverse:
-            sentence = sentence[::-1]
+            src_sentences = src_sentences[::-1]
             trg_sentences = trg_sentences[::-1]
 
     return src_sentences, trg_sentences
