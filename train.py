@@ -40,7 +40,7 @@ parser.add_argument("--num_layer", "-nl", type=int, default=4)
 
 parser.add_argument("--reverse", "-r", type=bool, default=False)
 parser.add_argument("--window", "-win", type=int, default=10) # used for local attn
-parser.add_argument("--attn_mode", "-attn", type=str, default='no') # no, global, local
+parser.add_argument("--attn_mode", "-attn", type=str, default='no') # no, global, local, base
 parser.add_argument("--input_feeding", "-feed", type=bool, default=False)
 
 args = parser.parse_args()
@@ -69,7 +69,7 @@ if __name__=='__main__':
     trg_w2i, trg_i2w = build_vocab(args.train_trg, args.max_vocab)
 
     # load data
-    src_train, trg_train = load_data(args.train_src, args.train_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['train_en'], trg_file=filtered_sentence_file['train_de'])
+    src_train, trg_train = load_data(args.train_src, args.train_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['train_en'], trg_file=filtered_sentence_file['train_de'], save=True)
     src_test, trg_test = load_data(args.test_src, args.test_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['test_en'], trg_file=filtered_sentence_file['test_de'])
     src_val, trg_val = load_data(args.val_src, args.val_trg, src_w2i=src_w2i, trg_w2i=trg_w2i, max_len=args.max_len, is_reverse=args.reverse, src_file=filtered_sentence_file['dev_en'], trg_file=filtered_sentence_file['dev_de'])
 

@@ -27,7 +27,7 @@ def build_vocab(file_name, max_vocab):
             id += 1
     return w2i, i2w
 
-def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False, src_file=None, trg_file=None):
+def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_reverse=False, src_file=None, trg_file=None, save=False):
 
     print("Loading data...")
 
@@ -87,10 +87,11 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
                 else:
                     sentence[i] = trg_w2i['<unk>']
         
-        with open('src_sentences_filtered.pkl', 'wb') as f:
-            pickle.dump(src_sentences, f)
-        with open('trg_sentences_filtered.pkl', 'wb') as f:
-            pickle.dump(trg_sentences, f)
+        if save:
+            with open('src_sentences_filtered_train.pkl', 'wb') as f:
+                pickle.dump(src_sentences, f)
+            with open('trg_sentences_filtered_train.pkl', 'wb') as f:
+                pickle.dump(trg_sentences, f)
 
         if is_reverse:
             src_sentences = src_sentences[::-1]
