@@ -53,11 +53,10 @@ class NMTRNN(nn.Module):
         if mode=='greedy_translate' or mode=='greedy':
             with torch.no_grad():
                 output = self.forward(src, trg_input, mode=mode)
-                return torch.tensor(output.argmax(dim=-1)) # (length, batch_size)
+                return torch.tensor(output.argmax(dim=-1))
 
         elif mode=='beam_translate' or mode=='beam':
             with torch.no_grad():
-
                 trg_length, batch_size = trg_input.shape
                 trg_vocab_size = self.decoder.output_dim
 
@@ -66,18 +65,17 @@ class NMTRNN(nn.Module):
                     encoder_output = None
 
                 # Initialize beam search
-                # Each beam hypothesis: (sequence, log_prob, hidden, cell, context)
                 beams = [(
-                    [trg_input[0].item()], # starts with <sos> token
-                    0.0, # log probability
+                    [trg_input[0].item()],
+                    0.0,
                     hidden.clone(),
                     cell.clone(),
-                    None # Context for input_feeding
+                    None
                 )]
 
                 completed_sequences = []
 
-                for t in range(1, trg_length): # starts from 1, since we have <sos>
+                for t in range(1, trg_length):
                     candidates = []
 
                     for sequence, log_prob, h, c, context in beams:
@@ -85,12 +83,18 @@ class NMTRNN(nn.Module):
 
                         decoder_output, new_h, new_c, attention_output = self.decoder(decoder_input, h, c, encoder_output, context)
 
-                        # get top k prob
-                        log_probs = F.log_softmax(decoder_output.squeeze(0), dim=-1)
+                        # Fix: Handle the output shape properly
+                        if decoder_output.dim() == 3:  # (1, batch_size, vocab_size)
+                            decoder_output = decoder_output.squeeze(0)  # (batch_size, vocab_size)
+                        
+                        if decoder_output.dim() == 2 and decoder_output.size(0) == 1:  # (1, vocab_size)
+                            decoder_output = decoder_output.squeeze(0)  # (vocab_size,)
+
+                        # Get top k probabilities
+                        log_probs = F.log_softmax(decoder_output, dim=-1)
                         top_log_probs, top_indices = log_probs.topk(beam_size)
 
-
-                        # create new candidates
+                        # Create new candidates
                         for i in range(beam_size):
                             new_token = top_indices[i].item()
                             new_log_prob = log_prob + top_log_probs[i].item()
@@ -103,40 +107,34 @@ class NMTRNN(nn.Module):
                     # Sort candidates by log prob and keep top beam_size
                     candidates.sort(key=lambda x: x[1], reverse=True)
 
-                    # seperate completed and ongoing sequences
+                    # Separate completed and ongoing sequences
                     new_beams = []
                     for candidate in candidates:
                         sequence, log_prob, h, c, context = candidate
 
-                        # check if complete
                         if sequence[-1] == eos_token or len(sequence) >= trg_length:
                             completed_sequences.append(candidate)
                         else:
                             new_beams.append(candidate)
 
-                        # Keep beam_size active beams
                         if len(new_beams) >= beam_size:
                             break
                     
                     beams = new_beams
 
-                    # Stop
-                    if len(completed_sequences) >= beam_size:
+                    if len(completed_sequences) >= beam_size or not beams:
                         break
 
-                    if not beams:
-                        break
-
-                # add remaining beams to completed sequences
+                # Add remaining beams to completed sequences
                 completed_sequences.extend(beams)
 
-                # sort by log prob and get best seq
+                # Sort by log prob and get best sequence
                 completed_sequences.sort(key=lambda x: x[1], reverse=True)
                 best_sequence = completed_sequences[0][0]
                 if best_sequence[-1] == eos_token:
                     best_sequence = best_sequence[:-1]
                 
-                return torch.tensor(best_sequence) # (length)
+                return torch.tensor(best_sequence)
 
 
 
