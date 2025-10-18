@@ -61,8 +61,8 @@ if __name__=='__main__':
 
 
     # set training params
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    #device = torch.device("mps")
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("mps")
 
     # build vocab
     src_w2i, src_i2w = build_vocab(args.train_src, args.max_vocab)
@@ -162,9 +162,9 @@ if __name__=='__main__':
                 predicted_n_gram_list = []
                 target_n_gram_list = []
                 for i in range(len(output)-n+1):
-                    predicted_n_gram_list.append(tuple(output[i:i+n]))
+                    predicted_n_gram_list.append(tuple(output[i:i+n].tolist()))
                 for i in range(len(target)-n+1):
-                    target_n_gram_list.append(tuple(target[i:i+n]))
+                    target_n_gram_list.append(tuple(target[i:i+n].reshape(-1).tolist()))
                 
                 target_counter = Counter(target_n_gram_list)
                 predicted_counter = Counter(predicted_n_gram_list)
@@ -179,7 +179,7 @@ if __name__=='__main__':
 
             if p_i:
                 bp = min(1.0, np.exp(1 - len(output)/len(target)))
-                bleu_score = bp * np.average(np.log(p_i))
+                bleu_score = bp * np.exp(np.average(np.log(p_i)))
                 total_bleu_score += bleu_score
         
         print("BLEU score: ", total_bleu_score)
