@@ -1,21 +1,16 @@
 import torch
 import argparse
 from model import NMTRNN
-from dataset import load_data, get_data_loader, build_vocab, TextDataset
-import torch.nn as nn
-import torch.optim as optim
-from trainer import Trainer
+from dataset import load_data, get_data_loader, TextDataset
 import pickle
 from collections import Counter
 import numpy as np
 from tqdm import tqdm
-import json
-from datetime import datetime
 
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--beam_size", '-beam', type=int, default=12)
+parser.add_argument("--beam_size", '-beam', type=int, default=5)
 
 
 parser.add_argument("--dropout", "-d", type=float, default=0.0)
@@ -86,6 +81,7 @@ if __name__=='__main__':
         target = batch["target"].to(device)
 
         output = model.translate(source, target, mode='beam_translate', beam_size=args.beam_size, eos_token=trg_w2i['<eos>']) # (length)
+        output = output[1:].to(device)
 
         p_i = []
         for n in range(1, 5):
@@ -94,9 +90,9 @@ if __name__=='__main__':
             predicted_n_gram_list = []
             target_n_gram_list = []
             for i in range(len(output)-n+1):
-                predicted_n_gram_list.append(tuple(output[i:i+n]))
+                predicted_n_gram_list.append(tuple(output[i:i+n].tolist()))
             for i in range(len(target)-n+1):
-                target_n_gram_list.append(tuple(target[i:i+n]))
+                target_n_gram_list.append(tuple(target[i:i+n].reshape(-1).tolist()))
             
             target_counter = Counter(target_n_gram_list)
             predicted_counter = Counter(predicted_n_gram_list)
@@ -111,8 +107,9 @@ if __name__=='__main__':
 
         if p_i:
             bp = min(1.0, np.exp(1 - len(output)/len(target)))
-            bleu_score = bp * np.average(np.log(p_i))
-            total_bleu_score += bleu_score
+            bleu_score = bp * np.exp(np.average(np.log(p_i)))
+            total_bleu_score += bleu_score*100
+            print("current bleu score: ", bleu_score)
     
-    print("BLEU score: ", total_bleu_score)
+    print("BLEU score: ", total_bleu_score/len(bleu_loader))
 
