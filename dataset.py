@@ -60,9 +60,6 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
                 src_sentences.append(src_words)
                 trg_sentences.append(trg_words)
 
-        del src_sentences_all
-        del trg_sentences_all
-        del remove_idx
 
         print("Mapping source sentence...")
         for sentence in tqdm(src_sentences):
