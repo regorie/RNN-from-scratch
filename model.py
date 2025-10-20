@@ -157,8 +157,8 @@ class LSTMEncoder(nn.Module):
         else:
             output, (hidden, cell) = self.lstm(embedded)
 
-        #hidden = torch.clamp(hidden, min=-50, max=50)
-        #cell = torch.clamp(cell, min=-50, max=50)
+        hidden = torch.clamp(hidden, min=-50, max=50)
+        cell = torch.clamp(cell, min=-50, max=50)
         return output, (hidden, cell)
     
 class LSTMDecoder(nn.Module):
@@ -209,8 +209,8 @@ class LSTMDecoder(nn.Module):
             attention_output = self.attention(encoder_output, hidden[-1])
             output = attention_output
 
-       #hidden = torch.clamp(hidden, min=-50, max=50)
-       # cell = torch.clamp(cell, min=-50, max=50)
+        hidden = torch.clamp(hidden, min=-50, max=50)
+        cell = torch.clamp(cell, min=-50, max=50)
 
         output = self.fc_out(output)
         return output, hidden, cell, attention_output
