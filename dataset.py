@@ -52,7 +52,7 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
         trg_sentences = []
 
         print("Loading and filterinf data...")
-        for src_line, trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_line)):
+        for src_line, trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_lines)):
             src_words = src_line.strip().split(' ')
             trg_words = trg_line.strip().split(' ')
 
