@@ -16,7 +16,7 @@ parser.add_argument("--target_vocab", default="./models/ntrnn_trg.pkl")
 parser.add_argument("--reverse", "-r", type=bool, default=False)
 parser.add_argument("--window", "-win", type=int, default=10)
 parser.add_argument("--mode", "-m", default="beam_translate")
-parser.add_argument("--beam_size", "-beam", default=5)
+parser.add_argument("--beam_size", "-beam", type=int, default=5)
 args = parser.parse_args()
 
 
