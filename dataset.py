@@ -48,26 +48,18 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
         src_lines = sf.readlines()
         trg_lines = tf.readlines()
 
-        src_sentences_all = []
-        trg_sentences_all = []
+        src_sentences = []
+        trg_sentences = []
 
-        remove_idx = []
+        print("Loading and filterinf data...")
+        for src_line, trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_line)):
+            src_words = src_line.strip().split(' ')
+            trg_words = trg_line.strip().split(' ')
 
-        for idx, (src_line, trg_line) in enumerate(zip(src_lines, trg_lines)):
-            if len(src_line.strip().split(' ')) > max_len or len(trg_line.strip().split(' ')) > max_len:
-                remove_idx.append(idx)
+            if len(src_words) <= max_len and len(trg_words) <= max_len:
+                src_sentences.append(src_words)
+                trg_sentences.append(trg_words)
 
-            src_sentences_all.append(src_line.strip().split(' '))
-            trg_sentences_all.append(trg_line.strip().split(' '))
-
-        start_time = time.time()
-        src_sentences = [sen for idx, sen in tqdm(enumerate(src_sentences_all), desc="Filtering source sentences", total=len(src_sentences_all)) if idx not in remove_idx]
-        trg_sentences = [sen for idx, sen in tqdm(enumerate(trg_sentences_all), desc="Filtering target sentences", total=len(trg_sentences_all)) if idx not in remove_idx]
-        
-        # save filtered sentences
-
-        end_time = time.time()
-        print("took ", end_time-start_time, " to filter sentences")
         del src_sentences_all
         del trg_sentences_all
         del remove_idx
@@ -88,6 +80,7 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
                     sentence[i] = trg_w2i['<unk>']
         
         if save:
+            print("Saving filtered sentences...")
             with open('src_sentences_filtered_train.pkl', 'wb') as f:
                 pickle.dump(src_sentences, f)
             with open('trg_sentences_filtered_train.pkl', 'wb') as f:
