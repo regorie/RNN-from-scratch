@@ -140,7 +140,7 @@ class TextDataset(data.Dataset):
         #self.src_sentences = src_sentences
         #self.trg_sentences = trg_sentences
 
-        self.length = len(src_sentences)
+        #self.length = len(src_sentences)
         self.src_tensors = []
         self.trg_tensors = []
 
@@ -151,7 +151,7 @@ class TextDataset(data.Dataset):
 
 
     def __len__(self):
-        return self.length
+        return len(self.src_tensors)
     
     def __getitem__(self, idx):
         # 1. source: input to encoder
