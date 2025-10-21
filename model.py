@@ -27,7 +27,7 @@ class NMTRNN(nn.Module):
         trg_length, batch_size = trg_input.shape
         trg_vocab_size = self.decoder.output_dim
 
-        outputs = torch.zeros(trg_length, batch_size, trg_vocab_size).to(self.device)
+        outputs = torch.zeros(trg_length, batch_size, trg_vocab_size, device=self.device)
         encoder_output, (hidden, cell) = self.encoder(src, src_lengths)
 
         if self.attention_mode == 'no': encoder_output = None
@@ -197,7 +197,7 @@ class LSTMDecoder(nn.Module):
             if prev_context is not None:
                 embedded = torch.cat((embedded, prev_context.unsqueeze(0)), dim=2) # (1, batch_size, embedded_size) + (1, batch_size, embedded_size)
             else:
-                embedded = torch.cat((embedded, torch.zeros_like(embedded).to(self.device)), dim=2) # need to match the size during the first time step!
+                embedded = torch.cat((embedded, torch.zeros_like(embedded, device=self.device)), dim=2) # need to match the size during the first time step!
                 
 
         output, (hidden, cell) = self.lstm(embedded, (hidden, cell))

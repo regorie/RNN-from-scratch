@@ -123,8 +123,8 @@ def get_data_loader(dataset, batch_size, pad_idx, shuffle=False, drop_last=False
         shuffle=shuffle,
         collate_fn=collate_fn,
         drop_last=drop_last,  # Ensure all batches are of equal size
-        persistent_workers=True,
-        num_workers=4
+        #persistent_workers=True,
+        #num_workers=4
         #pin_memory=True
     )
     return data_loader
