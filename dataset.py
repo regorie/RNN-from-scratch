@@ -94,21 +94,24 @@ def get_collate_fn(pad_idx):
         """
         batch: list of dicts with keys 'source', 'decoder_input', 'decoder_output'
         """
-        sources = [item['source'] for item in batch]
-        targets = [item['target'] for item in batch]
+        sources = []
+        targets = []
+        src_lengths = []
 
-        src_lengths = [len(src) for src in sources]
+        for item in batch:
+            sources.append(item['source'])
+            targets.append(item['target'])
+            src_lengths.append(len(item['source']))
 
         # Pad sequences to the max length in the batch
         src_padded = nn.utils.rnn.pad_sequence(sources, padding_value=pad_idx, batch_first=False)
         target_padded = nn.utils.rnn.pad_sequence(targets, padding_value=pad_idx, batch_first=False)
 
-        batch = {
+        return {
             'source': src_padded,
             'target': target_padded,
-            'src_lengths': torch.tensor(src_lengths)
+            'src_lengths': torch.tensor(src_lengths, dtype=torch.long)
         }
-        return batch
 
     return collate_fn
 
@@ -119,7 +122,10 @@ def get_data_loader(dataset, batch_size, pad_idx, shuffle=False, drop_last=False
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collate_fn,
-        drop_last=drop_last  # Ensure all batches are of equal size
+        drop_last=drop_last,  # Ensure all batches are of equal size
+        persistent_workers=True,
+        num_workers=4
+        #pin_memory=True
     )
     return data_loader
 
@@ -131,26 +137,29 @@ class TextDataset(data.Dataset):
         src_vocab = (src_w2i, src_i2w)
         trg_vocab = same as above
         """
-        self.src_sentences = src_sentences
-        self.trg_sentences = trg_sentences
-        for i in range(len(trg_sentences)):
-            self.trg_sentences[i] = [sos] + self.trg_sentences[i] + [eos]
-        #self.src_vocab = src_vocab
-        #self.trg_vocab = trg_vocab
+        #self.src_sentences = src_sentences
+        #self.trg_sentences = trg_sentences
+
+        self.length = len(src_sentences)
+        self.src_tensors = []
+        self.trg_tensors = []
+
+        for i in tqdm(range(len(trg_sentences))):
+            trg_with_tokens = [sos] + trg_sentences[i] + [eos]
+            self.src_tensors.append(torch.tensor(src_sentences[i]))
+            self.trg_tensors.append(torch.tensor(trg_with_tokens))
+
 
     def __len__(self):
-        return len(self.src_sentences)
+        return self.length
     
     def __getitem__(self, idx):
-        src_seq = self.src_sentences[idx]
-        trg_seq = self.trg_sentences[idx]
-
         # 1. source: input to encoder
         # 2. target: target sequence
         #            use target[:-1] for decoder input
         #            use target[1:] for decoder output
 
         return { 
-            'source': torch.tensor(src_seq, dtype=torch.long),
-            'target': torch.tensor(trg_seq, dtype=torch.long)
+            'source': self.src_tensors[idx],
+            'target': self.trg_tensors[idx]
         }
