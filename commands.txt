@@ -12,3 +12,6 @@ python train.py -trs ../wmt-whole/train_en.txt -trt ../wmt-whole/train_de.txt -t
 
 |=| base_reverse_dropout_global_feed
 python train.py -trs ../wmt-whole/train_en.txt -trt ../wmt-whole/train_de.txt -tes ../wmt-whole/test_2014_en.txt -tet ../wmt-whole/test_2014_de.txt -vls ../wmt-whole/dev_en.txt -vlt ../wmt-whole/dev_de.txt --save_path ./models/base_reverse_dropout_global_feed.pt --vocab_path_base ./models/base_reverse_dropout_global_feed_ --BLEU no -tb 500 --reverse yes --dropout 0.2 --epochs 12 -lrup 8 -attn global -feed True
+
+|=| base_reverse_dropout_local_feed
+python train.py -trs ../wmt-whole/train_en.txt -trt ../wmt-whole/train_de.txt -tes ../wmt-whole/test_2014_en.txt -tet ../wmt-whole/test_2014_de.txt -vls ../wmt-whole/dev_en.txt -vlt ../wmt-whole/dev_de.txt --save_path ./models/base_reverse_dropout_local_feed.pt --vocab_path_base ./models/base_reverse_dropout_local_feed_ --BLEU no -tb 500 --reverse yes --dropout 0.2 --epochs 12 -lrup 8 -attn local -feed True
