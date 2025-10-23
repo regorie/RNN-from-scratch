@@ -38,8 +38,8 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
             trg_sentences = pickle.load(tf)
 
             if is_reverse:
-                src_sentences = src_sentences[::-1]
-                trg_sentences = trg_sentences[::-1]
+                src_sentences = [s[::-1] for s in src_sentences]
+                trg_sentences = [s[::-1] for s in trg_sentences]
             
             return src_sentences, trg_sentences
 
@@ -84,8 +84,8 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
                 pickle.dump(trg_sentences, f)
 
         if is_reverse:
-            src_sentences = src_sentences[::-1]
-            trg_sentences = trg_sentences[::-1]
+            src_sentences = [s[::-1] for s in src_sentences]
+            trg_sentences = [s[::-1] for s in trg_sentences]
 
     return src_sentences, trg_sentences
 
