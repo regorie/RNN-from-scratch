@@ -124,7 +124,7 @@ if __name__=='__main__':
             with torch.no_grad():
                 output = model.translate(tokenized_query, target_input, mode=args.mode, beam_size=args.beam_size, eos_token=trg_w2i['<eos>'])
             if args.reverse:
-                output = output[::-1]
+                output = list(output)[::-1]
                 
             output_sentence = ""
             for id in output:
