@@ -25,7 +25,7 @@ parser.add_argument("--reverse", "-r", type=bool, default=False)
 parser.add_argument("--window", "-win", type=int, default=10)
 
 parser.add_argument("--mode", "-m", default="beam_translate")
-parser.add_argument("--beam_size", "-beam", type=int, default=5)
+parser.add_argument("--beam_size", "-beam", type=int, default=6)
 parser.add_argument("--target_length", default=50)
 
 args = parser.parse_args()
@@ -82,10 +82,8 @@ if __name__=='__main__':
                         fout.write("\n")
                         continue
 
-
                     if args.reverse:
                         token_ids = token_ids[::-1]
-
                     src_tensor = torch.tensor(token_ids, dtype=torch.long, device=device).reshape(len(token_ids), 1)
 
                     target_input = [trg_w2i['<sos>']] + [0 for _ in range(int(args.target_length))]
@@ -102,7 +100,6 @@ if __name__=='__main__':
                         if word == '<sos>':
                             continue
                         words.append(word)
-                    if args.reverse: words = words[::-1]
                     fout.write((' '.join(words)).strip() + "\n")
 
         print(f"Wrote translations to: {output_path}")
@@ -123,8 +120,6 @@ if __name__=='__main__':
 
             with torch.no_grad():
                 output = model.translate(tokenized_query, target_input, mode=args.mode, beam_size=args.beam_size, eos_token=trg_w2i['<eos>'])
-            if args.reverse:
-                output = list(output)[::-1]
                 
             output_sentence = ""
             for id in output:
