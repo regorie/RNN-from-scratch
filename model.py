@@ -263,15 +263,17 @@ class Attention(nn.Module):
 
         S, batch_size, hidden_dim = src_hidden.shape
 
+        # calculate the aligned position p_t
         position_t = self.W_p(trg_hidden) # -> (batch_size, hidden_dim)
         position_t = F.tanh(position_t)
         position_t = S * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
 
+        # calculate alignment score
         score = self.W_a(src_hidden) # (src_length, batch_size, hidden_dim)
-        
         score = torch.mul(trg_hidden.expand(S,-1,-1), score) # (batch_size, hidden_dim) * (src_length, batch_size, hidden_dim) -> (src_length, batch_size)
-        score = torch.sum(score, dim=2)
-        align = F.softmax(score, dim=1).T # (batch_size, src_length)
+        score = torch.sum(score, dim=-1) # (source_length, batch_size)
+
+        align = F.softmax(score, dim=0).T # ->(batch_size, src_length)
 
         # build mask
         src_indices = torch.arange(S, device=self.device).unsqueeze(0).repeat(batch_size, 1) # (batch_size, S)
