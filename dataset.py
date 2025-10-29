@@ -56,7 +56,8 @@ def load_data(src_data_path, trg_data_path, src_w2i, trg_w2i, max_len=100, is_re
             src_words = src_line.strip().split(' ')
             trg_words = trg_line.strip().split(' ')
 
-            if len(src_words) <= max_len and len(trg_words) <= max_len:
+            if len(src_words) <= max_len and len(trg_words) <= max_len\
+                and len(src_words) > 1 and len(trg_words) > 1: # filter blank, one-word sentences
                 src_sentences.append(src_words)
                 trg_sentences.append(trg_words)
 
