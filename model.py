@@ -183,7 +183,7 @@ class LSTMDecoder(nn.Module):
         if attention_mode == 'global':
             self.attention = Attention(mode='global', hidden_dim=hidden_dim, src_length=max_length, device=device)
         elif attention_mode == 'local':
-            self.attention = Attention(mode='local', hidden_dim=hidden_dim, src_length=attention_win, device=device)
+            self.attention = Attention(mode='local', hidden_dim=hidden_dim, src_length=max_length, attention_win=attention_win, device=device)
 
         self.fc_out = nn.Linear(hidden_dim, output_dim, bias=False)
 
@@ -217,7 +217,7 @@ class LSTMDecoder(nn.Module):
     
 
 class Attention(nn.Module):
-    def __init__(self, mode='global', hidden_dim=1000, src_length=50, device='cpu'):
+    def __init__(self, mode='global', hidden_dim=1000, src_length=50, attention_win=10, device='cpu'):
         super(Attention, self).__init__()
         self.mode = mode
         self.device = device
@@ -228,7 +228,7 @@ class Attention(nn.Module):
             self.W_c = nn.Linear(hidden_dim*2, hidden_dim, bias=False)
         elif mode =='local':
             self.align = self.align_local_general
-            self.attention_win = src_length
+            self.attention_win = attention_win  # Use separate parameter for attention window
             self.W_a = nn.Linear(hidden_dim, hidden_dim, bias=False)
             self.W_p = nn.Linear(hidden_dim, hidden_dim, bias=False)
             self.v_p = nn.Linear(hidden_dim, 1, bias=False)
@@ -268,24 +268,46 @@ class Attention(nn.Module):
         position_t = F.tanh(position_t)
         position_t = S * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
 
-        # calculate alignment score
+        # calculate alignment score using general function
+        # score(h_t, h_s) = h_t^T * W_a * h_s
         score = self.W_a(src_hidden) # (src_length, batch_size, hidden_dim)
         score = torch.mul(trg_hidden.expand(S,-1,-1), score) # (batch_size, hidden_dim) * (src_length, batch_size, hidden_dim) -> (src_length, batch_size)
         score = torch.sum(score, dim=-1) # (source_length, batch_size)
 
-        align = F.softmax(score, dim=0).T # ->(batch_size, src_length)
-
-        # build mask
-        src_indices = torch.arange(S, device=self.device).unsqueeze(0).repeat(batch_size, 1) # (batch_size, S)
+        # build mask for attention window
+        src_indices = torch.arange(S, device=self.device).float().unsqueeze(0).repeat(batch_size, 1) # (batch_size, S)
         lower_bound = position_t - self.attention_win # (batch_size, 1)
         upper_bound = position_t + self.attention_win
-        mask = (src_indices >= lower_bound) & (src_indices < upper_bound) # (batch_size, S)
-
-        # calculate gaussian values for each position within window
-        gaussian = torch.exp(-((src_indices-position_t)**2 / 2*(self.attention_win/2)**2)) # (batch_size, S)
-
-        align = torch.mul(align, gaussian) # (batch_size, src_length)
-        align = align*mask
+        
+        # Only attend to positions within the window
+        mask = (src_indices >= lower_bound) & (src_indices <= upper_bound) # (batch_size, S)
+        
+        # Apply mask to scores (set masked positions to very negative values)
+        masked_score = score.T  # (batch_size, src_length)
+        masked_score = masked_score.masked_fill(~mask, -1e9)
+        
+        # Apply softmax to get alignment weights
+        align = F.softmax(masked_score, dim=1) # (batch_size, src_length)
+        
+        # Apply Gaussian weighting within the window
+        # σ = D/2 where D is the window size, as suggested in the paper
+        sigma = self.attention_win / 2.0
+        gaussian = torch.exp(-((src_indices - position_t) ** 2) / (2 * sigma ** 2)) # (batch_size, S)
+        
+        # Apply Gaussian only within the mask
+        gaussian = gaussian * mask.float()
+        
+        # Normalize Gaussian weights within the window
+        gaussian_sum = gaussian.sum(dim=1, keepdim=True) + 1e-8  # Add small epsilon to avoid division by zero
+        gaussian = gaussian / gaussian_sum
+        
+        # Combine alignment weights with Gaussian weights
+        align = align * gaussian
+        
+        # Renormalize to ensure weights sum to 1
+        align_sum = align.sum(dim=1, keepdim=True) + 1e-8
+        align = align / align_sum
+        
         return align, position_t
 
     def align_global_location(self, trg_hidden, src_hidden=None): # global attention
