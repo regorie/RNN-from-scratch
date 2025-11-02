@@ -58,22 +58,24 @@ class BeamPositionTracker:
             self.all_positions[beam_id] = []
             
         if hasattr(model.decoder, 'attention') and model.decoder.attention.mode == 'local':
-            original_align = model.decoder.attention.align_local_general
+            # Attention.forward uses self.align (set in Attention.__init__), so patch .align
+            original_align = model.decoder.attention.align
             
             def position_capturing_align(trg_hidden, src_hidden):
                 align, position_t = original_align(trg_hidden, src_hidden)
                 if position_t is not None and self.current_beam_id is not None:
+                    # store a detached cpu copy for later replacement
                     self.all_positions[self.current_beam_id].append(position_t.detach().cpu())
                 return align, position_t
             
-            model.decoder.attention.align_local_general = position_capturing_align
+            model.decoder.attention.align = position_capturing_align
             return original_align
         return None
     
     def restore_original(self, model, original_align):
         """Restore original alignment function"""
         if original_align is not None:
-            model.decoder.attention.align_local_general = original_align
+            model.decoder.attention.align = original_align
     
     def get_beam_positions(self, beam_id):
         return self.all_positions.get(beam_id, [])
