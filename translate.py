@@ -4,6 +4,9 @@ import argparse
 from model import NMTRNN
 import pickle
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 #import sys
 
 
@@ -30,6 +33,8 @@ parser.add_argument("--beam_size", "-beam", type=int, default=6)
 parser.add_argument("--target_length", default=50)
 
 parser.add_argument("--unk_replacement", "-unk", default=False, type=bool)
+parser.add_argument("--visualize_attention", "-vis", default=False, type=bool, help="Save attention position visualization")
+parser.add_argument("--vis_output_dir", default="./attention_vis", help="Directory to save attention visualizations")
 
 args = parser.parse_args()
 
@@ -66,6 +71,7 @@ class BeamPositionTracker:
                 if position_t is not None and self.current_beam_id is not None:
                     # store a detached cpu copy for later replacement
                     self.all_positions[self.current_beam_id].append(position_t.detach().cpu())
+                        
                 return align, position_t
             
             model.decoder.attention.align = position_capturing_align
@@ -79,6 +85,20 @@ class BeamPositionTracker:
     
     def get_beam_positions(self, beam_id):
         return self.all_positions.get(beam_id, [])
+    
+    def get_position_history(self, beam_id):
+        """Get position history for visualization for the specified beam"""
+        positions = self.all_positions.get(beam_id, [])
+        # Convert to numpy array format for visualization
+        position_history = []
+        for pos in positions:
+            if hasattr(pos, 'numpy'):
+                position_history.append(pos.numpy())
+            elif isinstance(pos, torch.Tensor):
+                position_history.append(pos.detach().cpu().numpy())
+            else:
+                position_history.append(pos)
+        return position_history
     
     def clear(self):
         self.all_positions = {}
@@ -107,6 +127,74 @@ def unk_replacement(source_words, target_words, source_positions, src_w2i, trg_w
                     replaced_words[i] = source_words[pos]
     
     return replaced_words
+
+def visualize_attention_positions(source_words, target_words, positions, output_path):
+    """
+    Visualize attention positions for each target token
+    """
+    if not positions or len(positions) == 0:
+        print("No positions to visualize")
+        return
+    
+    # Convert positions to numpy array for easier handling
+    pos_array = []
+    for pos in positions:
+        if isinstance(pos, np.ndarray):
+            pos_array.append(pos.flatten()[0])  # Take first element if batch
+        else:
+            pos_array.append(pos.item() if hasattr(pos, 'item') else float(pos))
+    
+    # Create the visualization
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    
+    # Plot 1: Position trajectory
+    ax1.plot(range(len(pos_array)), pos_array, 'bo-', linewidth=2, markersize=6)
+    ax1.set_xlabel('Target Token Index')
+    ax1.set_ylabel('Source Position (p_t)')
+    ax1.set_title('Attention Position Trajectory')
+    ax1.grid(True, alpha=0.3)
+    ax1.set_ylim(0, len(source_words))
+    
+    # Add target words as x-tick labels if not too many
+    if len(target_words) <= 20:
+        ax1.set_xticks(range(len(target_words)))
+        ax1.set_xticklabels(target_words, rotation=45, ha='right')
+    
+    # Plot 2: Alignment heatmap
+    # Create a 2D array showing which target token attends to which source position
+    alignment_matrix = np.zeros((len(target_words), len(source_words)))
+    for i, pos in enumerate(pos_array):
+        if i < len(target_words):
+            # Use Gaussian-like distribution around the position
+            for j in range(len(source_words)):
+                dist = abs(j - pos)
+                alignment_matrix[i, j] = np.exp(-dist**2 / (2 * 2.0**2))  # sigma=2.0
+    
+    im = ax2.imshow(alignment_matrix, cmap='Blues', aspect='auto')
+    ax2.set_xlabel('Source Token Index')
+    ax2.set_ylabel('Target Token Index')
+    ax2.set_title('Attention Alignment Heatmap')
+    
+    # Add colorbar
+    plt.colorbar(im, ax=ax2, shrink=0.6)
+    
+    # Add source words as x-tick labels if not too many
+    if len(source_words) <= 20:
+        ax2.set_xticks(range(len(source_words)))
+        ax2.set_xticklabels(source_words, rotation=45, ha='right')
+    
+    # Add target words as y-tick labels if not too many  
+    if len(target_words) <= 20:
+        ax2.set_yticks(range(len(target_words)))
+        ax2.set_yticklabels(target_words)
+    
+    plt.tight_layout()
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Attention visualization saved to: {output_path}")
 
 def translate_with_unk_replacement(model, src_tensor, target_tensor, source_words, src_w2i, trg_w2i, trg_i2w, mode='beam', beam_size=6, eos_token=None):
     """
@@ -233,7 +321,7 @@ def translate_with_unk_replacement(model, src_tensor, target_tensor, source_word
         if args.unk_replacement and best_positions:
             words = unk_replacement(source_words, words, best_positions, src_w2i, trg_w2i, trg_i2w)
         
-        return words
+        return words, tracker, best_beam_id
 
 if __name__=='__main__':
     # set training params
@@ -258,8 +346,14 @@ if __name__=='__main__':
     # File-to-file translation mode
     if args.source_file is not None:
         output_path = args.output_file or (args.source_file + ".de.txt")
+        
+        # Create visualization directory if needed
+        if args.visualize_attention:
+            os.makedirs(args.vis_output_dir, exist_ok=True)
+        
         with open(args.source_file, 'r', encoding='utf-8') as fin, open(output_path, 'w', encoding='utf-8') as fout:
             with torch.no_grad():
+                sentence_idx = 0
                 for line in tqdm(fin):
                     line = line.rstrip('\n')
                     if len(line.strip()) == 0:
@@ -284,12 +378,19 @@ if __name__=='__main__':
                     target_input = [trg_w2i['<sos>']] + [0 for _ in range(int(args.target_length))]
                     target_tensor = torch.tensor(target_input, dtype=torch.long, device=device).reshape(len(target_input), 1)
 
-                    if args.unk_replacement:
-                        words = translate_with_unk_replacement(
+                    if args.unk_replacement and model.decoder.attn == 'local':
+                        words, tracker, best_beam_id = translate_with_unk_replacement(
                             model, src_tensor, target_tensor, source_words,
                             src_w2i, trg_w2i, trg_i2w, mode=args.mode, 
                             beam_size=args.beam_size, eos_token=trg_w2i['<eos>']
                         )
+                        
+                        # Visualize attention positions for first few sentences
+                        if args.visualize_attention and sentence_idx < 10:  # Limit to first 10 sentences
+                            positions = tracker.get_position_history(best_beam_id)
+                            if positions:
+                                vis_path = os.path.join(args.vis_output_dir, f"attention_sentence_{sentence_idx}.png")
+                                visualize_attention_positions(source_words, words, positions, vis_path)
                     else:
                         output_ids = model.translate(src_tensor, target_tensor, mode=args.mode, beam_size=args.beam_size, eos_token=trg_w2i['<eos>'])
                         # Build output sentence; stop at <eos> and do not include it
@@ -303,6 +404,7 @@ if __name__=='__main__':
                             words.append(word)
 
                     fout.write((' '.join(words)).strip() + "\n")
+                    sentence_idx += 1
 
         print(f"Wrote translations to: {output_path}")
 
@@ -323,13 +425,21 @@ if __name__=='__main__':
             target_input = torch.tensor(target_input, dtype=torch.long, device=device).reshape(len(target_input), 1)
 
             with torch.no_grad():
-                if args.unk_replacement:
-                    words = translate_with_unk_replacement(
+                if args.unk_replacement and model.decoder.attn == 'local':
+                    words, tracker, best_beam_id = translate_with_unk_replacement(
                         model, tokenized_query, target_input, source_words,
                         src_w2i, trg_w2i, trg_i2w, mode=args.mode, 
                         beam_size=args.beam_size, eos_token=trg_w2i['<eos>']
                     )
                     output_sentence = ' '.join(words)
+                    
+                    # Visualize attention if requested
+                    if args.visualize_attention:
+                        positions = tracker.get_position_history(best_beam_id)
+                        if positions:
+                            os.makedirs(args.vis_output_dir, exist_ok=True)
+                            vis_path = os.path.join(args.vis_output_dir, "interactive_attention.png")
+                            visualize_attention_positions(source_words, words, positions, vis_path)
                 else:
                     output = model.translate(tokenized_query, target_input, mode=args.mode, beam_size=args.beam_size, eos_token=trg_w2i['<eos>'])
                     output_sentence = ""
