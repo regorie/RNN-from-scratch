@@ -268,47 +268,41 @@ class Attention(nn.Module):
         position_t = F.tanh(position_t)
         position_t = S * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
 
+        # clamp position to valid range to handle edge cases
+        position_t = torch.clamp(position_t, 0, S-1)
+
         # calculate alignment score using general function
         # score(h_t, h_s) = h_t^T * W_a * h_s
-        score = self.W_a(src_hidden) # (src_length, batch_size, hidden_dim)
-        score = torch.mul(trg_hidden.expand(S,-1,-1), score) # (batch_size, hidden_dim) * (src_length, batch_size, hidden_dim) -> (src_length, batch_size)
-        score = torch.sum(score, dim=-1) # (source_length, batch_size)
+        score = self.W_a(trg_hidden) # (batch_size, hidden_dim)
+        score = torch.einsum('bh,sbh->sb', score, src_hidden) # (source_length, batch_size)
+        score = score.T # (batch_size, source_length)
 
         # build mask for attention window
-        src_indices = torch.arange(S, device=self.device).float().unsqueeze(0).repeat(batch_size, 1) # (batch_size, S)
-        lower_bound = position_t - self.attention_win # (batch_size, 1)
-        upper_bound = position_t + self.attention_win
-        
-        # Only attend to positions within the window
+        src_indices = torch.arange(S, device=self.devie, dtype=torch.float32)
+        src_indices = src_indices.unsqueeze(0).expand(batch_size, -1) # (batch_size, source_length)
+
+        lower_bound = torch.clamp(position_t - self.attention_win, 0, S-1) # (batch_size, 1)
+        upper_bound = torch.clamp(position_t + self.attention_win, 0, S-1)
+
         mask = (src_indices >= lower_bound) & (src_indices <= upper_bound) # (batch_size, S)
         
         # Apply mask to scores (set masked positions to very negative values)
-        masked_score = score.T  # (batch_size, src_length)
-        masked_score = masked_score.masked_fill(~mask, -1e9)
+        masked_score = score.masked_fill(~mask, -1e9)
         
         # Apply softmax to get alignment weights
         align = F.softmax(masked_score, dim=1) # (batch_size, src_length)
         
         # Apply Gaussian weighting within the window
-        # σ = D/2 where D is the window size, as suggested in the paper
-        sigma = self.attention_win / 2.0
-        gaussian = torch.exp(-((src_indices - position_t) ** 2) / (2 * sigma ** 2)) # (batch_size, S)
+        mask_float = mask.float()
+        gaussian_exp = torch.exp(-(((src_indices - position_t) ** 2) / (self.attention_win**2 / 2.0))) # (batch_size, S)
+
+        final_align = align * gaussian_exp * mask_float
         
-        # Apply Gaussian only within the mask
-        gaussian = gaussian * mask.float()
+        # Normalize to ensure weights sum to 1
+        final_sum = final_align.sum(dim=1, keepdim=True) + 1e-10
+        final_align = final_align / final_sum
         
-        # Normalize Gaussian weights within the window
-        gaussian_sum = gaussian.sum(dim=1, keepdim=True) + 1e-8  # Add small epsilon to avoid division by zero
-        gaussian = gaussian / gaussian_sum
-        
-        # Combine alignment weights with Gaussian weights
-        align = align * gaussian
-        
-        # Renormalize to ensure weights sum to 1
-        align_sum = align.sum(dim=1, keepdim=True) + 1e-8
-        align = align / align_sum
-        
-        return align, position_t
+        return final_align, position_t
 
     def align_global_location(self, trg_hidden, src_hidden=None): # global attention
         # trg_hidden : (batch_size, hidden_dim)
