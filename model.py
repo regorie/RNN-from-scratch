@@ -278,12 +278,13 @@ class Attention(nn.Module):
         score = score.T # (batch_size, source_length)
 
         # build mask for attention window
-        src_indices = torch.arange(S, device=self.devie, dtype=torch.float32)
+        src_indices = torch.arange(S, device=self.device, dtype=torch.float32)
         src_indices = src_indices.unsqueeze(0).expand(batch_size, -1) # (batch_size, source_length)
 
         lower_bound = torch.clamp(position_t - self.attention_win, 0, S-1) # (batch_size, 1)
         upper_bound = torch.clamp(position_t + self.attention_win, 0, S-1)
 
+        # need to consider the indices where True
         mask = (src_indices >= lower_bound) & (src_indices <= upper_bound) # (batch_size, S)
         
         # Apply mask to scores (set masked positions to very negative values)
