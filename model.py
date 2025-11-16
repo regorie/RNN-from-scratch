@@ -270,7 +270,7 @@ class Attention(nn.Module):
         position_t = S.view(-1, 1) * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
 
         # clamp position to valid range to handle edge cases
-        position_t = torch.clamp(position_t, min=0.0, max=(S-1).view(-1, 1).float())
+        position_t = torch.clamp(position_t, min=torch.zeros_like(position_t), max=(S-1).view(-1, 1).float())
 
         # calculate alignment score using general function
         # score(h_t, h_s) = h_t^T * W_a * h_s
@@ -283,7 +283,7 @@ class Attention(nn.Module):
         src_indices = src_indices.unsqueeze(0).expand(batch_size, -1) # (batch_size, source_length)
 
         lower_bound = torch.clamp(position_t - self.attention_win, min=0.0) # (batch_size, 1)
-        upper_bound = torch.clamp(position_t + self.attention_win, max=(S-1).view(-1, 1).float())
+        upper_bound = torch.clamp(position_t + self.attention_win, min=None, max=(S-1).view(-1, 1).float())
 
         # need to consider the indices where True
         mask = (src_indices >= lower_bound) & (src_indices <= upper_bound) # (batch_size, S)
