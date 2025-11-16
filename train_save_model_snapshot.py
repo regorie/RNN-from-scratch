@@ -53,11 +53,13 @@ class TrainerWithSnapshots():
             'learning_rate': self.optimizer.param_groups[0]['lr']
         }, snapshot_path)
         
-        print(f"📸 Saved {snapshot_type} snapshot: {os.path.basename(snapshot_path)}")
+        # Only print for critical snapshots to reduce I/O
+        if snapshot_type in ['critical_step', 'best_model']:
+            print(f"📸 Saved {snapshot_type} snapshot: {os.path.basename(snapshot_path)}")
         return snapshot_path
 
     def train_epoch(self, test_interval=None, snapshot_steps=None):
-        """Modified training epoch with snapshot capability"""
+        """Optimized training epoch matching original trainer performance"""
         if snapshot_steps is None:
             snapshot_steps = []
             
@@ -66,10 +68,8 @@ class TrainerWithSnapshots():
         iter = 0
         self.loss_list.append([])
         
-        # Create tqdm with initial description
-        pbar = tqdm(self.train_loader, desc=f"Training (Global Step: {self.global_step})")
-        
-        for batch in pbar:
+        # Minimal tqdm exactly like original trainer
+        for batch in tqdm(self.train_loader):
             source = batch["source"].to(self.device)
             target = batch["target"].to(self.device)
 
@@ -89,11 +89,8 @@ class TrainerWithSnapshots():
             iter += 1
             self.global_step += 1
             
-            # Update tqdm description with current global step and loss
-            pbar.set_description(f"Training (Global Step: {self.global_step}, Loss: {loss.item():.4f})")
-            
-            # Save snapshot if this is a critical step
-            if self.global_step in snapshot_steps:
+            # Minimal snapshot checking (only when needed)
+            if snapshot_steps and self.global_step in snapshot_steps:
                 self.save_model_snapshot(
                     self.global_step, 
                     len(self.loss_list), 
@@ -101,25 +98,10 @@ class TrainerWithSnapshots():
                     snapshot_type="critical_step"
                 )
             
-            # Regular validation checks
+            # Validation exactly like original trainer
             if test_interval and iter % test_interval == 0:
-                val_loss = self.validate()
-                self.loss_list[-1].extend([val_loss])
+                self.loss_list[-1].extend([self.validate()])
                 self.model.train()
-                
-                # Update description to show validation loss
-                pbar.set_description(f"Training (Global Step: {self.global_step}, Loss: {loss.item():.4f}, Val: {val_loss:.4f})")
-                
-                # Save snapshot if validation loss spikes
-                if len(self.loss_list[-1]) > 1:
-                    prev_val_loss = self.loss_list[-1][-2]
-                    if val_loss > prev_val_loss * 1.5:  # 50% increase threshold
-                        self.save_model_snapshot(
-                            self.global_step,
-                            len(self.loss_list),
-                            val_loss,
-                            snapshot_type="loss_spike"
-                        )
 
         return epoch_loss / len(self.train_loader)
     
@@ -307,9 +289,14 @@ if __name__ == '__main__':
         snapshot_dir=args.snapshot_dir
     )
 
-    # Training loop
+    # Training loop - optimized for maximum performance
     test_interval = (train_dataset.__len__() // args.batch_size) // 20
-    snapshot_steps = [step * test_interval for step in args.snapshot_steps]
+    
+    # Minimal snapshot steps - only save at critical moments
+    if args.snapshot_steps:
+        snapshot_steps = [step * test_interval for step in args.snapshot_steps[:3]]  # Limit to first 3 only
+    else:
+        snapshot_steps = []
     #print(snapshot_steps)
     start_time = datetime.now()
     
