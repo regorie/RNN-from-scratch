@@ -29,10 +29,11 @@ class Trainer():
         for batch in tqdm(self.train_loader):
             source = batch["source"].to(self.device)
             target = batch["target"].to(self.device)
+            src_lengths = batch["src_lengths"].to(self.device)
 
             self.optimizer.zero_grad()
 
-            output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='train')
+            output = self.model(source, target[:-1], src_lengths=src_lengths, mode='train')
 
             output_dim = output.shape[-1]
             output = output.view(-1, output_dim)
@@ -74,8 +75,9 @@ class Trainer():
             for i, batch in enumerate(self.test_loader):
                 source = batch["source"].to(self.device)
                 target = batch["target"].to(self.device)
+                src_lengths = batch["src_lengths"].to(self.device)
 
-                output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='test')
+                output = self.model(source, target[:-1], src_lengths=src_lengths, mode='test')
                 output_dim = output.shape[-1]
                 output = output.view(-1, output_dim)
 
@@ -93,8 +95,9 @@ class Trainer():
             for i, batch in enumerate(self.val_loader):
                 source = batch["source"].to(self.device)
                 target = batch["target"].to(self.device)
+                src_lengths = batch["src_lengths"].to(self.device)
 
-                output = self.model(source, target[:-1], src_lengths=batch['src_lengths'], mode='test')
+                output = self.model(source, target[:-1], src_lengths=src_lengths, mode='test')
                 output_dim = output.shape[-1]
                 output = output.view(-1, output_dim)
 
