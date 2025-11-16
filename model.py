@@ -35,7 +35,7 @@ class NMTRNN(nn.Module):
         decoder_input = trg_input[0,:] # (batch_size)
         prev_context = None
         for t in range(trg_length):
-            decoder_output, hidden, cell, attention_output = self.decoder(decoder_input, hidden, cell, encoder_output, prev_context)
+            decoder_output, hidden, cell, attention_output = self.decoder(decoder_input, hidden, cell, encoder_output, prev_context, src_lengths=src_lengths)
             if self.input_feeding:
                 prev_context = attention_output
             outputs[t] = decoder_output # (batch_size, trg_vocab_size)
@@ -187,7 +187,7 @@ class LSTMDecoder(nn.Module):
 
         self.fc_out = nn.Linear(hidden_dim, output_dim, bias=False)
 
-    def forward(self, input, hidden, cell, encoder_output, prev_context):
+    def forward(self, input, hidden, cell, encoder_output, prev_context, src_lengths=None):
 
         if input.dim() == 1:
             input = input.unsqueeze(0) # (batch_size) -> (length==1, batch_size)
@@ -206,7 +206,7 @@ class LSTMDecoder(nn.Module):
             attention_output = self.attention(encoder_output, hidden[-1])
             output = attention_output
         elif self.attn == 'local':
-            attention_output = self.attention(encoder_output, hidden[-1])
+            attention_output = self.attention(encoder_output, hidden[-1], src_lengths=src_lengths)
             output = attention_output
 
         hidden = torch.clamp(hidden, min=-50, max=50)
@@ -235,11 +235,11 @@ class Attention(nn.Module):
             self.W_c = nn.Linear(hidden_dim*2, hidden_dim, bias=False)
 
 
-    def forward(self, encoder_hidden, target_hidden):
+    def forward(self, encoder_hidden, target_hidden, src_lengths=None):
         src_length, batch_size, hidden_dim = encoder_hidden.shape
 
         # calculate alignment score
-        align, p_t = self.align(target_hidden, encoder_hidden) # (src_length, batch_size)
+        align, p_t = self.align(target_hidden, encoder_hidden, src_lengths=src_lengths) # (src_length, batch_size)
         align = align.T
 
         # calculate context vector by weighted averaging
@@ -257,19 +257,20 @@ class Attention(nn.Module):
 
         return tanh_context # (batch_size, hidden_dim)
 
-    def align_local_general(self, trg_hidden, src_hidden): # local attention
+    def align_local_general(self, trg_hidden, src_hidden, src_lengths=None): # local attention
         # trg_hidden : (batch_size, hidden_dim)
         # src_hidden : (src_length, batch_size, hidden_dim)
 
-        S, batch_size, hidden_dim = src_hidden.shape
+        S_padded, batch_size, hidden_dim = src_hidden.shape
+        S = src_lengths if src_lengths is not None else torch.tensor([S_padded] * batch_size, device=self.device)
 
         # calculate the aligned position p_t
         position_t = self.W_p(trg_hidden) # -> (batch_size, hidden_dim)
         position_t = F.tanh(position_t)
-        position_t = S * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
+        position_t = S.view(-1, 1) * F.sigmoid(self.v_p(position_t)) # -> (batch_size, 1)
 
         # clamp position to valid range to handle edge cases
-        position_t = torch.clamp(position_t, 0, S-1)
+        position_t = torch.clamp(position_t, 0, (S-1).view(-1, 1))
 
         # calculate alignment score using general function
         # score(h_t, h_s) = h_t^T * W_a * h_s
@@ -278,32 +279,30 @@ class Attention(nn.Module):
         score = score.T # (batch_size, source_length)
 
         # build mask for attention window
-        src_indices = torch.arange(S, device=self.device, dtype=torch.float32)
+        src_indices = torch.arange(S_padded, device=self.device, dtype=torch.float32)
         src_indices = src_indices.unsqueeze(0).expand(batch_size, -1) # (batch_size, source_length)
 
-        lower_bound = torch.clamp(position_t - self.attention_win, 0, S-1) # (batch_size, 1)
-        upper_bound = torch.clamp(position_t + self.attention_win, 0, S-1)
+        lower_bound = torch.clamp(position_t - self.attention_win, 0, (S-1).view(-1, 1)) # (batch_size, 1)
+        upper_bound = torch.clamp(position_t + self.attention_win, 0, (S-1).view(-1, 1))
 
         # need to consider the indices where True
         mask = (src_indices >= lower_bound) & (src_indices <= upper_bound) # (batch_size, S)
         
+        # Also mask out padding
+        len_mask = src_indices < S.view(-1, 1)
+        mask = mask & len_mask
+
+        # Apply Gaussian weighting within the window
+        gaussian_exp = torch.exp(-(((src_indices - position_t) ** 2) / (2 * (self.attention_win / 2)**2 ))) # (batch_size, S)
+        score = score * gaussian_exp
+
         # Apply mask to scores (set masked positions to very negative values)
         masked_score = score.masked_fill(~mask, -1e9)
         
         # Apply softmax to get alignment weights
         align = F.softmax(masked_score, dim=1) # (batch_size, src_length)
         
-        # Apply Gaussian weighting within the window
-        mask_float = mask.float()
-        gaussian_exp = torch.exp(-(((src_indices - position_t) ** 2) / (self.attention_win**2 / 2.0))) # (batch_size, S)
-
-        final_align = align * gaussian_exp * mask_float
-        
-        # Normalize to ensure weights sum to 1
-        final_sum = final_align.sum(dim=1, keepdim=True) + 1e-10
-        final_align = final_align / final_sum
-        
-        return final_align, position_t
+        return align, position_t
 
     def align_global_location(self, trg_hidden, src_hidden=None): # global attention
         # trg_hidden : (batch_size, hidden_dim)
