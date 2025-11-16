@@ -151,7 +151,7 @@ class LSTMEncoder(nn.Module):
     def forward(self, text, lengths=None):
         embedded = self.embedding(text)
         if lengths is not None:
-            packed_embed = pack_padded_sequence(embedded, lengths, batch_first=False, enforce_sorted=False)
+            packed_embed = pack_padded_sequence(embedded, lengths.to('cpu'), batch_first=False, enforce_sorted=False)
             packed_output, (hidden, cell) = self.lstm(packed_embed)
             output, _ = pad_packed_sequence(packed_output, batch_first=False)
         else:
